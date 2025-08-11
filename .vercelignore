@@ -1,0 +1,11 @@
+node_modules
+build
+dist
+.git
+.trae
+.log
+api/server.ts
+api/app.ts
+api/routes/**
+api/middleware/**
+api/data/**
