@@ -984,7 +984,5 @@ app.use((req: Request, res: Response) => {
   });
 });
 
-// Vercel handler
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  return app(req, res);
-}
+// Export app for Vercel
+export default app;
