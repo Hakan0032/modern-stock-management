@@ -6,7 +6,7 @@ import { DashboardStats, CriticalStockAlert, RecentMovement, UpcomingWorkOrder, 
 const router = express.Router();
 
 // Get dashboard statistics
-router.get('/stats', authenticateToken, async (req: Request, res: Response) => {
+router.get('/stats', async (req: Request, res: Response) => {
   try {
     // Calculate material statistics
     const totalMaterials = materials.length;
@@ -16,9 +16,7 @@ router.get('/stats', authenticateToken, async (req: Request, res: Response) => {
     const outOfStockMaterials = materials.filter(m => 
       m.currentStock === 0
     ).length;
-    const totalStockValue = materials.reduce((sum, m) => 
-      sum + (m.currentStock * m.unitPrice), 0
-    );
+
 
     // Calculate work order statistics
     const totalWorkOrders = workOrders.length;
@@ -60,18 +58,18 @@ router.get('/stats', authenticateToken, async (req: Request, res: Response) => {
     
     const monthlyInbound = currentMonthMovements
       .filter(m => m.type === 'IN')
-      .reduce((sum, m) => sum + m.totalPrice, 0);
+      .reduce((sum, m) => sum + m.quantity, 0);
     
     const monthlyOutbound = currentMonthMovements
       .filter(m => m.type === 'OUT')
-      .reduce((sum, m) => sum + m.totalPrice, 0);
+      .reduce((sum, m) => sum + m.quantity, 0);
 
     const stats: DashboardStats = {
       materials: {
         total: totalMaterials,
         lowStock: lowStockMaterials,
         outOfStock: outOfStockMaterials,
-        totalValue: totalStockValue
+
       },
       workOrders: {
         total: totalWorkOrders,
@@ -107,7 +105,7 @@ router.get('/stats', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Get critical stock alerts
-router.get('/alerts/critical-stock', authenticateToken, async (req: Request, res: Response) => {
+router.get('/critical-stock', async (req: Request, res: Response) => {
   try {
     const criticalMaterials: CriticalStockAlert[] = materials
       .filter(m => m.currentStock <= m.minStockLevel)
@@ -142,7 +140,7 @@ router.get('/alerts/critical-stock', authenticateToken, async (req: Request, res
 });
 
 // Get recent movements
-router.get('/recent-movements', authenticateToken, async (req: Request, res: Response) => {
+router.get('/recent-movements', async (req: Request, res: Response) => {
   try {
     const { limit = '10' } = req.query;
     
@@ -156,7 +154,7 @@ router.get('/recent-movements', authenticateToken, async (req: Request, res: Res
         type: m.type,
         quantity: m.quantity,
         unit: m.unit,
-        totalPrice: m.totalPrice,
+
         reason: m.reason,
         location: m.location,
         createdAt: m.createdAt
@@ -175,7 +173,7 @@ router.get('/recent-movements', authenticateToken, async (req: Request, res: Res
 });
 
 // Get upcoming work orders
-router.get('/upcoming-workorders', authenticateToken, async (req: Request, res: Response) => {
+router.get('/upcoming-workorders', async (req: Request, res: Response) => {
   try {
     const { limit = '10' } = req.query;
     const now = new Date();
@@ -214,7 +212,7 @@ router.get('/upcoming-workorders', authenticateToken, async (req: Request, res: 
 });
 
 // Get stock movement trends (last 6 months)
-router.get('/trends/stock-movements', authenticateToken, async (req: Request, res: Response) => {
+router.get('/trends/stock-movements', async (req: Request, res: Response) => {
   try {
     const now = new Date();
     const monthlyData: StockMovementTrend[] = [];
@@ -230,11 +228,11 @@ router.get('/trends/stock-movements', authenticateToken, async (req: Request, re
       
       const inbound = monthMovements
         .filter(m => m.type === 'IN')
-        .reduce((sum, m) => sum + m.totalPrice, 0);
+        .reduce((sum, m) => sum + m.quantity, 0);
       
       const outbound = monthMovements
         .filter(m => m.type === 'OUT')
-        .reduce((sum, m) => sum + m.totalPrice, 0);
+        .reduce((sum, m) => sum + m.quantity, 0);
       
       monthlyData.unshift({
         month: monthDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
@@ -257,7 +255,7 @@ router.get('/trends/stock-movements', authenticateToken, async (req: Request, re
 });
 
 // Get work order completion trends (last 6 months)
-router.get('/trends/workorder-completion', authenticateToken, async (req: Request, res: Response) => {
+router.get('/trends/workorder-completion', async (req: Request, res: Response) => {
   try {
     const now = new Date();
     const monthlyData: WorkOrderCompletionTrend[] = [];
@@ -296,7 +294,7 @@ router.get('/trends/workorder-completion', authenticateToken, async (req: Reques
 });
 
 // Get top consumed materials (current month)
-router.get('/top-consumed-materials', authenticateToken, async (req: Request, res: Response) => {
+router.get('/top-consumed-materials', async (req: Request, res: Response) => {
   try {
     const { limit = '10' } = req.query;
     const currentMonth = new Date().getMonth();
@@ -319,17 +317,17 @@ router.get('/top-consumed-materials', authenticateToken, async (req: Request, re
           materialName: m.materialName,
           unit: m.unit,
           totalQuantity: 0,
-          totalValue: 0,
+
           movementCount: 0
         };
       }
       materialConsumption[m.materialId].totalQuantity += m.quantity;
-      materialConsumption[m.materialId].totalValue += m.totalPrice;
+
       materialConsumption[m.materialId].movementCount += 1;
     });
     
     const topMaterials = Object.values(materialConsumption)
-      .sort((a, b) => b.totalValue - a.totalValue)
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
       .slice(0, parseInt(limit as string));
 
     res.json({
@@ -345,7 +343,7 @@ router.get('/top-consumed-materials', authenticateToken, async (req: Request, re
 });
 
 // Get category distribution for reports
-router.get('/category-distribution', authenticateToken, async (req: Request, res: Response) => {
+router.get('/category-distribution', async (req: Request, res: Response) => {
   try {
     const categoryStats = materials.reduce((acc: any, material) => {
       const category = material.category || 'Diğer';
@@ -354,12 +352,12 @@ router.get('/category-distribution', authenticateToken, async (req: Request, res
           name: category,
           count: 0,
           value: 0,
-          totalValue: 0
+
         };
       }
       acc[category].count += 1;
-      acc[category].value += material.currentStock * material.unitPrice;
-      acc[category].totalValue += material.currentStock * material.unitPrice;
+      acc[category].value += material.currentStock;
+
       return acc;
     }, {});
 
@@ -378,7 +376,7 @@ router.get('/category-distribution', authenticateToken, async (req: Request, res
 });
 
 // Get stock trends for reports
-router.get('/stock-trends', authenticateToken, async (req: Request, res: Response) => {
+router.get('/stock-trends', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
     const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -428,22 +426,29 @@ router.get('/stock-trends', authenticateToken, async (req: Request, res: Respons
 });
 
 // Get work order stats for reports
-router.get('/work-order-stats', authenticateToken, async (req: Request, res: Response) => {
+router.get('/work-order-stats', async (req: Request, res: Response) => {
   try {
     const total = workOrders.length;
-    const planned = workOrders.filter(wo => wo.status === 'PLANNED').length;
+    const pending = workOrders.filter(wo => wo.status === 'PLANNED').length;
     const inProgress = workOrders.filter(wo => wo.status === 'IN_PROGRESS').length;
     const completed = workOrders.filter(wo => wo.status === 'COMPLETED').length;
-    const cancelled = workOrders.filter(wo => wo.status === 'CANCELLED').length;
+    
+    // Calculate overdue work orders (planned start date passed but not completed)
+    const now = new Date();
+    const overdue = workOrders.filter(wo => {
+      if (wo.status === 'COMPLETED' || wo.status === 'CANCELLED') return false;
+      if (!wo.plannedStartDate) return false;
+      return new Date(wo.plannedStartDate) < now;
+    }).length;
     
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
 
     const stats = {
       total,
-      planned,
+      pending,
       inProgress,
       completed,
-      cancelled,
+      overdue,
       completionRate
     };
 

@@ -1,67 +1,93 @@
 import express, { Request, Response } from 'express';
 import { authenticateToken, requirePlanningAccess } from '../middleware/auth';
-import { workOrders, materials, bomItems, materialMovements, getNextId } from '../data/mockData';
+import { dbAdmin } from '../lib/supabase';
 import type { WorkOrder, MaterialMovement } from '../../shared/types';
 
 const router = express.Router();
 
 // Get all work orders with filtering
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const { search, status, priority, machineId, page = 1, limit = 10 } = req.query;
-    let filteredWorkOrders = [...workOrders];
+    
+    // Get all work orders from Supabase
+    let workOrders = await dbAdmin.workOrders.getAll();
 
     // Apply search filter
     if (search) {
       const searchLower = (search as string).toLowerCase();
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        wo.orderNumber.toLowerCase().includes(searchLower) ||
+      workOrders = workOrders.filter(wo => 
+        wo.order_number.toLowerCase().includes(searchLower) ||
         wo.title.toLowerCase().includes(searchLower) ||
         wo.description?.toLowerCase().includes(searchLower) ||
-        wo.machineName?.toLowerCase().includes(searchLower)
+        wo.machine_name?.toLowerCase().includes(searchLower)
       );
     }
 
     // Apply status filter
     if (status) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
+      workOrders = workOrders.filter(wo => 
         wo.status === status
       );
     }
 
     // Apply priority filter
     if (priority) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
+      workOrders = workOrders.filter(wo => 
         wo.priority === priority
       );
     }
 
     // Apply machine filter
     if (machineId) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        wo.machineId === machineId
+      workOrders = workOrders.filter(wo => 
+        wo.machine_id === machineId
       );
     }
 
     // Sort by creation date (newest first)
-    filteredWorkOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    workOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Convert to frontend format
+    const formattedWorkOrders = workOrders.map(wo => ({
+      id: wo.id,
+      orderNumber: wo.order_number,
+      title: wo.title,
+      description: wo.description,
+      machineId: wo.machine_id,
+      machineName: wo.machine_name,
+      quantity: Number(wo.quantity),
+      status: wo.status,
+      priority: wo.priority,
+      plannedStartDate: wo.planned_start_date,
+      plannedEndDate: wo.planned_end_date,
+      actualStartDate: wo.actual_start_date,
+      actualEndDate: wo.actual_end_date,
+      estimatedDuration: wo.estimated_duration,
+      actualDuration: wo.actual_duration,
+      createdBy: wo.created_by,
+      assignedTo: wo.assigned_to,
+      createdAt: wo.created_at,
+      updatedAt: wo.updated_at
+    }));
 
     // Pagination
     const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
     const endIndex = startIndex + parseInt(limit as string);
-    const paginatedWorkOrders = filteredWorkOrders.slice(startIndex, endIndex);
+    const paginatedWorkOrders = formattedWorkOrders.slice(startIndex, endIndex);
 
     res.json({
       success: true,
       data: {
         data: paginatedWorkOrders,
-        total: filteredWorkOrders.length,
+        total: formattedWorkOrders.length,
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        totalPages: Math.ceil(filteredWorkOrders.length / parseInt(limit as string))
+        totalPages: Math.ceil(formattedWorkOrders.length / parseInt(limit as string))
       }
     });
   } catch (error) {
+    console.error('Work orders fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İş emirleri yüklenirken hata oluştu'
@@ -70,31 +96,48 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Get work order by ID
-router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const workOrder = workOrders.find(wo => wo.id === req.params.id);
+    const workOrder = await dbAdmin.workOrders.getById(req.params.id);
     
-    if (!workOrder) {
-      return res.status(404).json({
-        success: false,
-        error: 'İş emri bulunamadı'
-      });
-    }
+    // Convert to frontend format
+    const formattedWorkOrder = {
+      id: workOrder.id,
+      orderNumber: workOrder.order_number,
+      title: workOrder.title,
+      description: workOrder.description,
+      machineId: workOrder.machine_id,
+      machineName: workOrder.machine_name,
+      quantity: Number(workOrder.quantity),
+      status: workOrder.status,
+      priority: workOrder.priority,
+      plannedStartDate: workOrder.planned_start_date,
+      plannedEndDate: workOrder.planned_end_date,
+      actualStartDate: workOrder.actual_start_date,
+      actualEndDate: workOrder.actual_end_date,
+      estimatedDuration: workOrder.estimated_duration,
+      actualDuration: workOrder.actual_duration,
+      createdBy: workOrder.created_by,
+      assignedTo: workOrder.assigned_to,
+      createdAt: workOrder.created_at,
+      updatedAt: workOrder.updated_at
+    };
 
     res.json({
       success: true,
-      data: workOrder
+      data: formattedWorkOrder
     });
   } catch (error) {
-    res.status(500).json({
+    console.error('Work order fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(404).json({
       success: false,
-      error: 'İş emri yüklenirken hata oluştu'
+      error: 'İş emri bulunamadı'
     });
   }
 });
 
 // Create new work order
-router.post('/', authenticateToken, requirePlanningAccess, async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const {
       title,
@@ -118,35 +161,56 @@ router.post('/', authenticateToken, requirePlanningAccess, async (req: Request, 
     // Generate order number
     const orderNumber = `WO${Date.now().toString().slice(-6)}`;
 
-    const newWorkOrder: WorkOrder = {
-      id: getNextId(),
-      orderNumber,
+    const workOrderData = {
+      order_number: orderNumber,
       title,
       description: description || '',
-      machineId,
-      machineName,
+      machine_id: machineId,
+      machine_name: machineName,
       quantity: 1, // Default quantity
       status: 'PLANNED',
       priority,
-      plannedStartDate,
-      plannedEndDate: plannedEndDate || null,
-      actualStartDate: null,
-      actualEndDate: null,
-      estimatedDuration: estimatedDuration || null,
-      actualDuration: null,
-      createdBy: (req as any).user.id,
-      assignedTo: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      planned_start_date: plannedStartDate,
+      planned_end_date: plannedEndDate || null,
+      actual_start_date: null,
+      actual_end_date: null,
+      estimated_duration: estimatedDuration || null,
+      actual_duration: null,
+      created_by: (req as any).user.id,
+      assigned_to: null
     };
 
-    workOrders.push(newWorkOrder);
+    const newWorkOrder = await dbAdmin.workOrders.create(workOrderData);
+
+    // Convert to frontend format
+    const formattedWorkOrder = {
+      id: newWorkOrder.id,
+      orderNumber: newWorkOrder.order_number,
+      title: newWorkOrder.title,
+      description: newWorkOrder.description,
+      machineId: newWorkOrder.machine_id,
+      machineName: newWorkOrder.machine_name,
+      quantity: Number(newWorkOrder.quantity),
+      status: newWorkOrder.status,
+      priority: newWorkOrder.priority,
+      plannedStartDate: newWorkOrder.planned_start_date,
+      plannedEndDate: newWorkOrder.planned_end_date,
+      actualStartDate: newWorkOrder.actual_start_date,
+      actualEndDate: newWorkOrder.actual_end_date,
+      estimatedDuration: newWorkOrder.estimated_duration,
+      actualDuration: newWorkOrder.actual_duration,
+      createdBy: newWorkOrder.created_by,
+      assignedTo: newWorkOrder.assigned_to,
+      createdAt: newWorkOrder.created_at,
+      updatedAt: newWorkOrder.updated_at
+    };
 
     res.status(201).json({
       success: true,
-      data: newWorkOrder
+      data: formattedWorkOrder
     });
   } catch (error) {
+    console.error('Work order creation error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İş emri oluşturulurken hata oluştu'
@@ -155,17 +219,8 @@ router.post('/', authenticateToken, requirePlanningAccess, async (req: Request, 
 });
 
 // Update work order
-router.put('/:id', authenticateToken, requirePlanningAccess, async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const workOrderIndex = workOrders.findIndex(wo => wo.id === req.params.id);
-    
-    if (workOrderIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        error: 'İş emri bulunamadı'
-      });
-    }
-
     const {
       title,
       description,
@@ -176,24 +231,46 @@ router.put('/:id', authenticateToken, requirePlanningAccess, async (req: Request
       assignedTo
     } = req.body;
 
-    // Update work order
-    workOrders[workOrderIndex] = {
-      ...workOrders[workOrderIndex],
-      title: title || workOrders[workOrderIndex].title,
-      description: description !== undefined ? description : workOrders[workOrderIndex].description,
-      priority: priority || workOrders[workOrderIndex].priority,
-      plannedStartDate: plannedStartDate || workOrders[workOrderIndex].plannedStartDate,
-      plannedEndDate: plannedEndDate !== undefined ? plannedEndDate : workOrders[workOrderIndex].plannedEndDate,
-      estimatedDuration: estimatedDuration !== undefined ? estimatedDuration : workOrders[workOrderIndex].estimatedDuration,
-      assignedTo: assignedTo !== undefined ? assignedTo : workOrders[workOrderIndex].assignedTo,
-      updatedAt: new Date().toISOString()
+    const updateData: any = {};
+    if (title) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (priority) updateData.priority = priority;
+    if (plannedStartDate) updateData.planned_start_date = plannedStartDate;
+    if (plannedEndDate !== undefined) updateData.planned_end_date = plannedEndDate;
+    if (estimatedDuration !== undefined) updateData.estimated_duration = estimatedDuration;
+    if (assignedTo !== undefined) updateData.assigned_to = assignedTo;
+
+    const updatedWorkOrder = await dbAdmin.workOrders.update(req.params.id, updateData);
+
+    // Convert to frontend format
+    const formattedWorkOrder = {
+      id: updatedWorkOrder.id,
+      orderNumber: updatedWorkOrder.order_number,
+      title: updatedWorkOrder.title,
+      description: updatedWorkOrder.description,
+      machineId: updatedWorkOrder.machine_id,
+      machineName: updatedWorkOrder.machine_name,
+      quantity: Number(updatedWorkOrder.quantity),
+      status: updatedWorkOrder.status,
+      priority: updatedWorkOrder.priority,
+      plannedStartDate: updatedWorkOrder.planned_start_date,
+      plannedEndDate: updatedWorkOrder.planned_end_date,
+      actualStartDate: updatedWorkOrder.actual_start_date,
+      actualEndDate: updatedWorkOrder.actual_end_date,
+      estimatedDuration: updatedWorkOrder.estimated_duration,
+      actualDuration: updatedWorkOrder.actual_duration,
+      createdBy: updatedWorkOrder.created_by,
+      assignedTo: updatedWorkOrder.assigned_to,
+      createdAt: updatedWorkOrder.created_at,
+      updatedAt: updatedWorkOrder.updated_at
     };
 
     res.json({
       success: true,
-      data: workOrders[workOrderIndex]
+      data: formattedWorkOrder
     });
   } catch (error) {
+    console.error('Work order update error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İş emri güncellenirken hata oluştu'
@@ -202,17 +279,8 @@ router.put('/:id', authenticateToken, requirePlanningAccess, async (req: Request
 });
 
 // Update work order status
-router.patch('/:id/status', authenticateToken, async (req: Request, res: Response) => {
+router.patch('/:id/status', async (req: Request, res: Response) => {
   try {
-    const workOrderIndex = workOrders.findIndex(wo => wo.id === req.params.id);
-    
-    if (workOrderIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        error: 'İş emri bulunamadı'
-      });
-    }
-
     const { status } = req.body;
     const validStatuses = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
     
@@ -223,38 +291,69 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
       });
     }
 
-    const currentWorkOrder = workOrders[workOrderIndex];
     const now = new Date().toISOString();
+    const updateData: any = { status };
+
+    // Get current work order to check status transitions
+    const currentWorkOrder = await dbAdmin.workOrders.getById(req.params.id);
+    
+    if (!currentWorkOrder) {
+      return res.status(404).json({
+        success: false,
+        error: 'İş emri bulunamadı'
+      });
+    }
 
     // Update timestamps based on status change
     if (status === 'IN_PROGRESS' && currentWorkOrder.status === 'PLANNED') {
-      currentWorkOrder.actualStartDate = now;
+      updateData.actual_start_date = now;
     } else if (status === 'COMPLETED' && currentWorkOrder.status === 'IN_PROGRESS') {
-      currentWorkOrder.actualEndDate = now;
+      updateData.actual_end_date = now;
       
       // Calculate actual duration
-      if (currentWorkOrder.actualStartDate) {
-        const startTime = new Date(currentWorkOrder.actualStartDate);
+      if (currentWorkOrder.actual_start_date) {
+        const startTime = new Date(currentWorkOrder.actual_start_date);
         const endTime = new Date(now);
-        currentWorkOrder.actualDuration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)); // hours
+        updateData.actual_duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)); // hours
       }
-
-      // Auto-consume materials based on BOM when work order is completed
-      await consumeMaterialsForWorkOrder(currentWorkOrder.machineId, (req as any).user.id);
     }
 
-    // Update status
-    workOrders[workOrderIndex] = {
-      ...currentWorkOrder,
-      status,
-      updatedAt: now
+    const updatedWorkOrder = await dbAdmin.workOrders.update(req.params.id, updateData);
+
+    // Auto-consume materials based on BOM when work order is completed
+    if (status === 'COMPLETED' && currentWorkOrder.status !== 'COMPLETED') {
+      await consumeMaterialsForWorkOrder(updatedWorkOrder.machine_id, (req as any).user.id);
+    }
+
+    // Convert to frontend format
+    const formattedWorkOrder = {
+      id: updatedWorkOrder.id,
+      orderNumber: updatedWorkOrder.order_number,
+      title: updatedWorkOrder.title,
+      description: updatedWorkOrder.description,
+      machineId: updatedWorkOrder.machine_id,
+      machineName: updatedWorkOrder.machine_name,
+      quantity: Number(updatedWorkOrder.quantity),
+      status: updatedWorkOrder.status,
+      priority: updatedWorkOrder.priority,
+      plannedStartDate: updatedWorkOrder.planned_start_date,
+      plannedEndDate: updatedWorkOrder.planned_end_date,
+      actualStartDate: updatedWorkOrder.actual_start_date,
+      actualEndDate: updatedWorkOrder.actual_end_date,
+      estimatedDuration: updatedWorkOrder.estimated_duration,
+      actualDuration: updatedWorkOrder.actual_duration,
+      createdBy: updatedWorkOrder.created_by,
+      assignedTo: updatedWorkOrder.assigned_to,
+      createdAt: updatedWorkOrder.created_at,
+      updatedAt: updatedWorkOrder.updated_at
     };
 
     res.json({
       success: true,
-      data: workOrders[workOrderIndex]
+      data: formattedWorkOrder
     });
   } catch (error) {
+    console.error('Work order status update error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İş emri durumu güncellenirken hata oluştu'
@@ -263,33 +362,34 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
 });
 
 // Delete work order
-router.delete('/:id', authenticateToken, requirePlanningAccess, async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const workOrderIndex = workOrders.findIndex(wo => wo.id === req.params.id);
+    // First get the work order to check its status
+    const workOrder = await dbAdmin.workOrders.getById(req.params.id);
     
-    if (workOrderIndex === -1) {
+    if (!workOrder) {
       return res.status(404).json({
         success: false,
         error: 'İş emri bulunamadı'
       });
     }
 
-    // Check if work order can be deleted
-    const workOrder = workOrders[workOrderIndex];
-    if (workOrder.status === 'IN_PROGRESS') {
+    // Check if work order can be deleted (only planned orders)
+    if (workOrder.status !== 'PLANNED') {
       return res.status(400).json({
         success: false,
-        error: 'Devam eden iş emri silinemez'
+        error: 'Sadece planlanan iş emirleri silinebilir'
       });
     }
 
-    workOrders.splice(workOrderIndex, 1);
+    await dbAdmin.workOrders.delete(req.params.id);
 
     res.json({
       success: true,
       message: 'İş emri başarıyla silindi'
     });
   } catch (error) {
+    console.error('Work order deletion error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İş emri silinirken hata oluştu'
@@ -298,8 +398,11 @@ router.delete('/:id', authenticateToken, requirePlanningAccess, async (req: Requ
 });
 
 // Get work order statistics
-router.get('/stats/summary', authenticateToken, async (req: Request, res: Response) => {
+router.get('/stats/summary', async (req: Request, res: Response) => {
   try {
+    // Get all work orders from database
+    const workOrders = await dbAdmin.workOrders.getAll();
+    
     const stats = {
       total: workOrders.length,
       pending: workOrders.filter(wo => wo.status === 'PLANNED').length,
@@ -309,8 +412,8 @@ router.get('/stats/summary', authenticateToken, async (req: Request, res: Respon
       highPriority: workOrders.filter(wo => wo.priority === 'HIGH').length,
       overdue: workOrders.filter(wo => {
         if (wo.status === 'COMPLETED' || wo.status === 'CANCELLED') return false;
-        if (!wo.plannedEndDate) return false;
-        return new Date(wo.plannedEndDate) < new Date();
+        if (!wo.planned_end_date) return false;
+        return new Date(wo.planned_end_date) < new Date();
       }).length
     };
 
@@ -319,6 +422,7 @@ router.get('/stats/summary', authenticateToken, async (req: Request, res: Respon
       data: stats
     });
   } catch (error) {
+    console.error('Work order statistics error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'İstatistikler yüklenirken hata oluştu'
@@ -330,45 +434,34 @@ router.get('/stats/summary', authenticateToken, async (req: Request, res: Respon
 async function consumeMaterialsForWorkOrder(machineId: string, userId: string) {
   try {
     // Get BOM items for the machine
-    const machineBOM = bomItems.filter(item => item.machineId === machineId);
+    const bomItems = await dbAdmin.bomItems.getByMachine(machineId);
     
-    for (const bomItem of machineBOM) {
-      // Find the material
-      const materialIndex = materials.findIndex(m => m.id === bomItem.materialId);
-      
-      if (materialIndex !== -1) {
-        const material = materials[materialIndex];
-        const consumeQuantity = bomItem.quantity;
-        
-        // Check if enough stock is available
-        if (material.currentStock >= consumeQuantity) {
-          // Update material stock
-          materials[materialIndex].currentStock -= consumeQuantity;
-          materials[materialIndex].updatedAt = new Date().toISOString();
-          
-          // Create movement record
-          const movement: MaterialMovement = {
-            id: getNextId(),
-            materialId: bomItem.materialId,
-            materialName: bomItem.materialName,
-            materialCode: bomItem.materialCode,
-            type: 'OUT',
-            quantity: consumeQuantity,
-            unit: bomItem.unit,
-            unitPrice: bomItem.unitPrice,
-            totalPrice: consumeQuantity * bomItem.unitPrice,
-            reason: `İş Emri Tüketimi - Makine: ${machineId}`,
-            location: material.location || 'Depo',
-            performedBy: userId,
-            createdAt: new Date().toISOString()
-          };
-          
-          materialMovements.push(movement);
-        }
+    for (const bomItem of bomItems) {
+      // Create material movement for consumption
+      const movementData = {
+        material_id: bomItem.material_id,
+        material_name: bomItem.material_name || `Material ${bomItem.material_id}`,
+        type: 'OUT' as const,
+        quantity: Number(bomItem.quantity),
+        reason: 'PRODUCTION',
+        notes: `İş Emri Tüketimi - Makine: ${machineId}`,
+        created_by: userId
+      };
+
+      // Create the movement
+      await dbAdmin.materialMovements.create(movementData);
+
+      // Update material stock
+      const material = await dbAdmin.materials.getById(bomItem.material_id);
+      if (material) {
+        const newStock = Number(material.current_stock) - movementData.quantity;
+        await dbAdmin.materials.update(bomItem.material_id, {
+          current_stock: Math.max(0, newStock) // Prevent negative stock
+        });
       }
     }
   } catch (error) {
-    console.error('Material consumption error:', error);
+    console.error('Material consumption error:', error instanceof Error ? error.message : JSON.stringify(error));
   }
 }
 

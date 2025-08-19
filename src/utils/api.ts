@@ -3,9 +3,26 @@ import type { ApiResponse } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
 
+// Get API base URL based on environment
+const getApiBaseUrl = (): string => {
+  // In production (Vercel), use relative path
+  if (typeof window !== 'undefined') {
+    // Browser environment
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Development environment - use full URL to backend server
+      return 'http://localhost:3001/api';
+    } else {
+      // Production environment (Vercel)
+      return '/api';
+    }
+  }
+  // Server-side rendering or Node.js environment
+  return '/api';
+};
+
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -16,6 +33,7 @@ const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().token;
+    // Add token to all API requests if available
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,38 +44,36 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors and token refresh
+// Response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     return response;
   },
   async (error: AxiosError<ApiResponse>) => {
-    const originalRequest = error.config;
-    
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        await useAuthStore.getState().refreshTokenAction();
-        const token = useAuthStore.getState().token;
-        if (token && originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-        }
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
+    // For 401 errors on auth endpoints, logout and redirect
+    if (error.response?.status === 401 && error.config?.url?.includes('/auth/')) {
+      console.log('🚪 API: 401 hatası, logout yapılıyor');
+      useAuthStore.getState().logout();
+      window.location.href = '/login';
+      return Promise.reject(error);
     }
 
-    // Show error toast for non-401 errors
-    if (error.response?.status !== 401) {
-      const errorMessage = error.response?.data?.error || 'An error occurred';
-      toast.error('Error', {
-        description: errorMessage
-      });
-    }
+    // Show error toast for other errors
+    const errorData = error.response?.data?.error;
+    const errorMessage = typeof errorData === 'string' ? errorData : 
+                        typeof errorData === 'object' ? JSON.stringify(errorData) : 
+                        'An error occurred';
+    
+    console.error('❌ API Error Details:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: errorMessage,
+      data: error.response?.data
+    });
+    toast.error('Error', {
+      description: errorMessage
+    });
 
     return Promise.reject(error);
   }
@@ -87,6 +103,7 @@ export const api = {
 };
 
 export { apiClient };
+export default api;
 
 // Extend AxiosRequestConfig to include _retry property
 declare module 'axios' {

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Machine, BOMItem } from '../types';
 import { api } from '../utils/api';
-import { formatCurrency, formatDate, getStatusColor } from '../utils';
+import { formatDate, getStatusColor } from '../utils';
 import { toast } from 'sonner';
 import BOMEditor from '../components/BOMEditor';
 

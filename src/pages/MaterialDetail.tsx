@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Material, MaterialMovement } from '../types';
 import { api } from '../utils/api';
-import { formatCurrency, formatDate, formatRelativeTime, getStockLevelColor } from '../utils';
+import { formatDate, formatRelativeTime, getStockLevelColor } from '../utils';
 import { toast } from 'sonner';
 
 const MaterialDetail: React.FC = () => {
@@ -135,7 +135,7 @@ const MaterialDetail: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-500 mb-1">
                   Birim Fiyat
                 </label>
-                <p className="text-gray-900 font-medium">{formatCurrency(material.unitPrice)}</p>
+
               </div>
               {material.description && (
                 <div className="md:col-span-2">
@@ -269,13 +269,13 @@ const MaterialDetail: React.FC = () => {
                   Toplam Değer
                 </label>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(material.currentStock * material.unitPrice)}
+                  {material.currentStock}
                 </p>
               </div>
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Birim Fiyat:</span>
-                  <span className="font-medium">{formatCurrency(material.unitPrice)}</span>
+
                 </div>
                 <div className="flex justify-between text-sm mt-1">
                   <span className="text-gray-500">Miktar:</span>

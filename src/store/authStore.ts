@@ -1,13 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AuthState, User, LoginRequest, LoginResponse } from '../types';
+import type { AuthState, User } from '../types';
 import { api } from '../utils/api';
 
+// Hardcoded admin user for simple authentication
+const HARDCODED_ADMIN: User = {
+  id: 'admin-1',
+  email: 'admin@test.com',
+  username: 'admin',
+  password: 'admin123',
+  firstName: 'Admin',
+  lastName: 'User',
+  role: 'admin' as const,
+  department: 'IT',
+  phone: '+90 555 000 0000',
+  isActive: true,
+  lastLogin: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
 interface AuthStore extends Omit<AuthState, 'refreshToken'> {
-  refreshToken: string;
   login: (credentials: { email: string; password: string }) => Promise<void>;
   logout: () => void;
-  refreshTokenAction: () => Promise<void>;
   setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
 }
@@ -17,62 +32,71 @@ export const useAuthStore = create<AuthStore>()(
     (set, get) => ({
       user: null,
       token: null,
-      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
 
-      login: async (credentials: LoginRequest) => {
+      login: async (credentials: { email: string; password: string }) => {
+        console.log('🔐 Auth Store: Login başlatıldı', credentials);
+        console.log('🌐 Auth Store: API Base URL:', 'http://localhost:3001/api');
+        
+        set({ isLoading: true });
+        
         try {
-          set({ isLoading: true });
+          console.log('📡 Auth Store: API çağrısı yapılıyor...');
+          // Gerçek API çağrısı yap
+          const response = await api.post('/auth/login', credentials);
+          console.log('✅ Auth Store: Ham API yanıtı:', response);
+          console.log('✅ Auth Store: Response data:', response.data);
+          console.log('✅ Auth Store: Response status:', response.status);
           
-          const response = await api.post<LoginResponse>('/auth/login', credentials);
-          const { token, refreshToken, user } = response.data.data;
-
-          set({
-            user,
-            token,
-            refreshToken,
-            isAuthenticated: true,
-            isLoading: false
+          if (response.data && response.data.success && response.data.data) {
+            const { token, user } = response.data.data;
+            console.log('👤 Auth Store: User data:', user);
+            console.log('🎫 Auth Store: Token:', token ? 'Token alındı' : 'Token yok');
+            
+            set({
+              user,
+              token,
+              isAuthenticated: true,
+              isLoading: false
+            });
+            
+            console.log('✅ Auth Store: State güncellendi, login başarılı');
+            return;
+          } else {
+            console.log('❌ Auth Store: API yanıtı başarısız:', response.data);
+            throw new Error(response.data?.error || 'Giriş başarısız');
+          }
+        } catch (error: any) {
+          console.log('❌ Auth Store: Login hatası detayı:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            config: error.config
           });
-        } catch (error) {
           set({ isLoading: false });
-          throw error;
+          
+          // Daha detaylı hata mesajı
+          let errorMessage = 'Giriş yapılamadı';
+          if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          
+          throw new Error(errorMessage);
         }
       },
 
       logout: () => {
+        console.log('🚪 Auth Store: Logout yapılıyor');
         set({
           user: null,
           token: null,
-          refreshToken: null,
           isAuthenticated: false,
           isLoading: false
         });
-      },
-
-      refreshTokenAction: async () => {
-        try {
-          const currentRefreshToken = get().refreshToken;
-          if (!currentRefreshToken) {
-            throw new Error('No refresh token available');
-          }
-
-          const response = await api.post('/auth/refresh', {
-            refreshToken: currentRefreshToken
-          });
-
-          const { token: newToken, refreshToken: newRefreshToken } = response.data.data;
-          
-          set({
-            token: newToken,
-            refreshToken: newRefreshToken
-          });
-        } catch (error) {
-          // If refresh fails, logout user
-          get().logout();
-          throw error;
-        }
+        console.log('✅ Auth Store: Logout tamamlandı');
       },
 
       setUser: (user: User | null) => {
@@ -88,7 +112,6 @@ export const useAuthStore = create<AuthStore>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated
       })
     }

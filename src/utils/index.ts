@@ -25,31 +25,53 @@ export function formatNumber(num: number, decimals = 0): string {
 
 // Format date
 export function formatDate(date: Date | string, format: 'short' | 'long' | 'datetime' = 'short'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (!date) return '-';
   
-  switch (format) {
-    case 'long':
-      return dateObj.toLocaleDateString('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    case 'datetime':
-      return dateObj.toLocaleString('tr-TR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    default:
-      return dateObj.toLocaleDateString('tr-TR');
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return '-';
+    }
+    
+    switch (format) {
+      case 'long':
+        return dateObj.toLocaleDateString('tr-TR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      case 'datetime':
+        return dateObj.toLocaleString('tr-TR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      default:
+        return dateObj.toLocaleDateString('tr-TR');
+    }
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return '-';
   }
 }
 
 // Format relative time (e.g., "2 hours ago")
 export function formatRelativeTime(date: Date | string): string {
+  if (!date) {
+    return 'Tarih belirtilmemiş';
+  }
+  
   const dateObj = typeof date === 'string' ? new Date(date) : date;
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'Geçersiz tarih';
+  }
+  
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
 

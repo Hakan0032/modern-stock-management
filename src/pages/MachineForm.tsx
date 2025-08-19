@@ -86,13 +86,13 @@ const MachineForm: React.FC = () => {
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/machines')}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Yeni Makine Ekle</h1>
-            <p className="text-gray-600">Yeni makine bilgilerini girin</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Yeni Makine Ekle</h1>
+            <p className="text-gray-600 dark:text-gray-300">Yeni makine bilgilerini girin</p>
           </div>
         </div>
       </div>
@@ -100,15 +100,15 @@ const MachineForm: React.FC = () => {
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
             <Settings className="w-5 h-5 mr-2" />
             Temel Bilgiler
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Makine Adı *
               </label>
               <input
@@ -117,14 +117,14 @@ const MachineForm: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Örn: Mermer Kesim Makinesi #1"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="model" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Model *
               </label>
               <input
@@ -133,14 +133,14 @@ const MachineForm: React.FC = () => {
                 name="model"
                 value={formData.model}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Örn: MKS-2000"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="manufacturer" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="manufacturer" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Üretici *
               </label>
               <input
@@ -149,14 +149,14 @@ const MachineForm: React.FC = () => {
                 name="manufacturer"
                 value={formData.manufacturer}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Örn: ABC Makine San."
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="serialNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Seri Numarası
               </label>
               <input
@@ -165,13 +165,13 @@ const MachineForm: React.FC = () => {
                 name="serialNumber"
                 value={formData.serialNumber}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Örn: MKS2000-2024-001"
               />
             </div>
 
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Durum *
               </label>
               <select
@@ -179,7 +179,7 @@ const MachineForm: React.FC = () => {
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 required
               >
                 {statusOptions.map(option => (
@@ -189,7 +189,7 @@ const MachineForm: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Lokasyon
               </label>
               <input
@@ -198,13 +198,13 @@ const MachineForm: React.FC = () => {
                 name="location"
                 value={formData.location}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Örn: Atölye A - Hat 1"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Açıklama
               </label>
               <textarea
@@ -213,7 +213,7 @@ const MachineForm: React.FC = () => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Makine hakkında detaylı bilgi..."
               />
             </div>
@@ -221,13 +221,13 @@ const MachineForm: React.FC = () => {
         </div>
 
         {/* Technical Specifications */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Teknik Özellikler
           </h2>
           
           <div>
-            <label htmlFor="specifications" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="specifications" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Teknik Özellikler
             </label>
             <textarea
@@ -236,21 +236,21 @@ const MachineForm: React.FC = () => {
               value={formData.specifications}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder={`Örnek:\n- Güç: 15 kW\n- Kesim Kapasitesi: 3000x2000mm\n- Ağırlık: 2500 kg\n- Çalışma Basıncı: 8 bar`}
             />
           </div>
         </div>
 
         {/* Purchase Information */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Satın Alma Bilgileri
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Satın Alma Tarihi
               </label>
               <input
@@ -259,12 +259,12 @@ const MachineForm: React.FC = () => {
                 name="purchaseDate"
                 value={formData.purchaseDate}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
 
             <div>
-              <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="purchasePrice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Satın Alma Fiyatı (₺)
               </label>
               <input
@@ -275,7 +275,7 @@ const MachineForm: React.FC = () => {
                 onChange={handleInputChange}
                 step="0.01"
                 min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="0.00"
               />
             </div>
@@ -287,7 +287,7 @@ const MachineForm: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('/machines')}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+            className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center space-x-2"
           >
             <X className="w-4 h-4" />
             <span>İptal</span>

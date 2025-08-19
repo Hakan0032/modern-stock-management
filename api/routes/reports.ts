@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { authenticateToken, requireManagerAccess } from '../middleware/auth';
-import { materials, workOrders, materialMovements, machines, bomItems } from '../data/mockData';
+import { dbAdmin } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { Material, WorkOrder, MaterialMovement, Machine, BOMItem, StockReport, MovementReport, WorkOrderReport, MachineUtilizationReport, BOMCostAnalysisReport } from '../../shared/types';
 
 const router = express.Router();
@@ -14,51 +15,55 @@ interface CSVColumn {
 router.get('/stock', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { category, location, stockStatus, format = 'json' } = req.query;
-    let filteredMaterials = [...materials];
-
-    // Apply filters
+    
+    // Build query with filters
+    let query = supabaseAdmin.from('materials').select('*');
+    
     if (category && typeof category === 'string') {
-      filteredMaterials = filteredMaterials.filter(m => m.category === category);
+      query = query.eq('category', category);
     }
-
+    
     if (location && typeof location === 'string') {
-      filteredMaterials = filteredMaterials.filter(m => m.location === location);
+      query = query.eq('location', location);
     }
-
+    
     if (stockStatus && typeof stockStatus === 'string') {
       switch (stockStatus) {
         case 'low':
-          filteredMaterials = filteredMaterials.filter(m => 
-            m.currentStock <= m.minStockLevel && m.currentStock > 0
-          );
+          query = query.lte('current_stock', 10);
+          query = query.gt('current_stock', 0);
           break;
         case 'out':
-          filteredMaterials = filteredMaterials.filter(m => m.currentStock === 0);
+          query = query.eq('current_stock', 0);
           break;
         case 'normal':
-          filteredMaterials = filteredMaterials.filter(m => 
-            m.currentStock > m.minStockLevel
-          );
+          query = query.gt('current_stock', 0);
           break;
       }
     }
-
+    
+    const { data: materials, error } = await query;
+    
+    if (error) {
+      console.error('Materials fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+      throw error;
+    }
+    
+    const filteredMaterials = materials || [];
+    
     // Calculate totals
-    const totalValue = filteredMaterials.reduce((sum, m) => 
-      sum + (m.currentStock * m.unitPrice), 0
-    );
+
     const totalItems = filteredMaterials.length;
     const lowStockItems = filteredMaterials.filter(m => 
-      m.currentStock <= m.minStockLevel
+      m.current_stock <= m.min_stock_level
     ).length;
     const outOfStockItems = filteredMaterials.filter(m => 
-      m.currentStock === 0
+      m.current_stock === 0
     ).length;
 
     const reportData: StockReport = {
       summary: {
         totalItems,
-        totalValue,
         lowStockItems,
         outOfStockItems,
         generatedAt: new Date().toISOString()
@@ -68,15 +73,14 @@ router.get('/stock', authenticateToken, async (req: Request, res: Response) => {
         name: m.name,
         category: m.category,
         location: m.location,
-        currentStock: m.currentStock,
-        minStockLevel: m.minStockLevel,
-        maxStockLevel: m.maxStockLevel,
+        currentStock: m.current_stock,
+        minStockLevel: m.min_stock_level,
+        maxStockLevel: m.max_stock_level,
         unit: m.unit,
-        unitPrice: m.unitPrice,
-        totalValue: m.currentStock * m.unitPrice,
-        stockStatus: m.currentStock === 0 ? 'Stokta Yok' :
-                    m.currentStock <= m.minStockLevel ? 'Düşük Stok' : 'Normal',
-        lastUpdated: m.updatedAt
+
+        stockStatus: m.current_stock === 0 ? 'Stokta Yok' :
+                    m.current_stock <= m.min_stock_level ? 'Düşük Stok' : 'Normal',
+        lastUpdated: m.updated_at
       }))
     };
 
@@ -89,8 +93,7 @@ router.get('/stock', authenticateToken, async (req: Request, res: Response) => {
         { key: 'currentStock', header: 'Mevcut Stok' },
         { key: 'minStockLevel', header: 'Min Stok' },
         { key: 'unit', header: 'Birim' },
-        { key: 'unitPrice', header: 'Birim Fiyat' },
-        { key: 'totalValue', header: 'Toplam Değer' },
+
         { key: 'stockStatus', header: 'Stok Durumu' }
       ]);
       
@@ -123,45 +126,53 @@ router.get('/movements', authenticateToken, async (req: Request, res: Response) 
       format = 'json' 
     } = req.query;
     
-    let filteredMovements = [...materialMovements];
-
+    // Build query with filters
+    let query = supabaseAdmin.from('material_movements')
+      .select(`
+        *,
+        materials!inner(code, name)
+      `)
+      .order('created_at', { ascending: false });
+    
     // Apply date filter
     if (startDate && typeof startDate === 'string') {
-      filteredMovements = filteredMovements.filter(m => 
-        new Date(m.createdAt) >= new Date(startDate)
-      );
+      query = query.gte('created_at', startDate);
     }
     
     if (endDate && typeof endDate === 'string') {
-      filteredMovements = filteredMovements.filter(m => 
-        new Date(m.createdAt) <= new Date(endDate)
-      );
+      query = query.lte('created_at', endDate);
     }
 
     // Apply other filters
     if (materialId && typeof materialId === 'string') {
-      filteredMovements = filteredMovements.filter(m => m.materialId === materialId);
+      query = query.eq('material_id', materialId);
     }
 
     if (type && typeof type === 'string') {
-      filteredMovements = filteredMovements.filter(m => m.type === type);
+      query = query.eq('type', type);
     }
 
     if (location && typeof location === 'string') {
-      filteredMovements = filteredMovements.filter(m => m.location === location);
+      query = query.eq('location', location);
     }
-
-    // Sort by date (newest first)
-    filteredMovements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const { data: movements, error } = await query;
+    
+    if (error) {
+      console.error('Movements fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+      throw error;
+    }
+    
+    const filteredMovements = movements || [];
 
     // Calculate totals
     const totalInbound = filteredMovements
       .filter(m => m.type === 'IN')
-      .reduce((sum, m) => sum + m.totalPrice, 0);
+      .reduce((sum, m) => sum + m.quantity, 0);
     
     const totalOutbound = filteredMovements
       .filter(m => m.type === 'OUT')
-      .reduce((sum, m) => sum + m.totalPrice, 0);
+      .reduce((sum, m) => sum + m.quantity, 0);
 
     const reportData: MovementReport = {
       summary: {
@@ -177,18 +188,17 @@ router.get('/movements', authenticateToken, async (req: Request, res: Response) 
       },
       movements: filteredMovements.map(m => ({
         id: m.id,
-        materialCode: m.materialCode,
-        materialName: m.materialName,
+        materialCode: m.materials?.code || '',
+        materialName: m.materials?.name || '',
         type: m.type,
         quantity: m.quantity,
         unit: m.unit,
-        unitPrice: m.unitPrice,
-        totalPrice: m.totalPrice,
+
         reason: m.reason,
         reference: m.reference,
         location: m.location,
-        performedBy: m.performedBy,
-        createdAt: m.createdAt
+        performedBy: m.performed_by,
+        createdAt: m.created_at
       }))
     };
 
@@ -199,8 +209,7 @@ router.get('/movements', authenticateToken, async (req: Request, res: Response) 
         { key: 'type', header: 'Tip' },
         { key: 'quantity', header: 'Miktar' },
         { key: 'unit', header: 'Birim' },
-        { key: 'unitPrice', header: 'Birim Fiyat' },
-        { key: 'totalPrice', header: 'Toplam Fiyat' },
+
         { key: 'reason', header: 'Sebep' },
         { key: 'location', header: 'Lokasyon' },
         { key: 'createdAt', header: 'Tarih' }
@@ -235,53 +244,63 @@ router.get('/workorders', authenticateToken, async (req: Request, res: Response)
       format = 'json' 
     } = req.query;
     
-    let filteredWorkOrders = [...workOrders];
-
-    // Apply date filter (based on creation date)
+    // Build query with filters
+    let query = supabaseAdmin.from('work_orders')
+      .select(`
+        *,
+        machines!inner(code, name)
+      `)
+      .order('created_at', { ascending: false });
+    
+    // Apply date filter
     if (startDate && typeof startDate === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        new Date(wo.createdAt) >= new Date(startDate)
-      );
+      query = query.gte('created_at', startDate);
     }
     
     if (endDate && typeof endDate === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        new Date(wo.createdAt) <= new Date(endDate)
-      );
+      query = query.lte('created_at', endDate);
     }
 
     // Apply other filters
     if (status && typeof status === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => wo.status === status);
+      query = query.eq('status', status);
     }
 
     if (priority && typeof priority === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => wo.priority === priority);
+      query = query.eq('priority', priority);
     }
 
     if (machineId && typeof machineId === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => wo.machineId === machineId);
+      query = query.eq('machine_id', machineId);
     }
-
-    // Sort by creation date (newest first)
-    filteredWorkOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const { data: workOrders, error } = await query;
+    
+    if (error) {
+      console.error('Work orders fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+      throw error;
+    }
+    
+    const filteredWorkOrders = workOrders || [];
 
     // Calculate statistics
     const totalWorkOrders = filteredWorkOrders.length;
     const completedWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'COMPLETED').length;
-    const pendingWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'PLANNED').length;
+    const pendingWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'PENDING').length;
     const inProgressWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'IN_PROGRESS').length;
     const cancelledWorkOrders = filteredWorkOrders.filter(wo => wo.status === 'CANCELLED').length;
     
-    const completionRate = totalWorkOrders > 0 ? (completedWorkOrders / totalWorkOrders * 100) : 0;
+    const completionRate = totalWorkOrders > 0 ? (completedWorkOrders / totalWorkOrders) * 100 : 0;
     
     // Calculate average completion time for completed work orders
-    const completedWithDuration = filteredWorkOrders.filter(wo => 
-      wo.status === 'COMPLETED' && wo.actualDuration
-    );
-    const avgCompletionTime = completedWithDuration.length > 0 ?
-      (completedWithDuration.reduce((sum, wo) => sum + (wo.actualDuration || 0), 0) / completedWithDuration.length) :
-      0;
+    const completedOrders = filteredWorkOrders.filter(wo => wo.status === 'COMPLETED' && wo.completed_at);
+    const avgCompletionTime = completedOrders.length > 0 
+      ? completedOrders.reduce((sum, wo) => {
+          const start = new Date(wo.created_at).getTime();
+          const end = new Date(wo.completed_at!).getTime();
+          return sum + (end - start);
+        }, 0) / completedOrders.length / (1000 * 60 * 60) // Convert to hours
+      : 0;
 
     const reportData: WorkOrderReport = {
       summary: {
@@ -299,18 +318,25 @@ router.get('/workorders', authenticateToken, async (req: Request, res: Response)
         generatedAt: new Date().toISOString()
       },
       workOrders: filteredWorkOrders.map(wo => ({
-        orderNumber: wo.orderNumber,
+        id: wo.id,
+        orderNumber: wo.order_number,
         title: wo.title,
-        machineName: wo.machineName,
+        description: wo.description,
+        machineCode: wo.machines?.code || '',
+        machineName: wo.machines?.name || '',
         status: wo.status,
         priority: wo.priority,
-        plannedStartDate: wo.plannedStartDate,
-        plannedEndDate: wo.plannedEndDate,
-        actualStartDate: wo.actualStartDate,
-        actualEndDate: wo.actualEndDate,
-        estimatedDuration: wo.estimatedDuration,
-        actualDuration: wo.actualDuration,
-        createdAt: wo.createdAt
+        assignedTo: wo.assigned_to,
+        plannedStartDate: wo.planned_start_date,
+        plannedEndDate: wo.planned_end_date,
+        actualStartDate: wo.actual_start_date,
+        actualEndDate: wo.actual_end_date,
+        estimatedDuration: wo.estimated_duration,
+        actualDuration: wo.actual_duration,
+        createdAt: wo.created_at,
+        startedAt: wo.started_at,
+        completedAt: wo.completed_at,
+        notes: wo.notes
       }))
     };
 
@@ -349,76 +375,108 @@ router.get('/workorders', authenticateToken, async (req: Request, res: Response)
 // Get machine utilization report
 router.get('/machine-utilization', authenticateToken, requireManagerAccess, async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, format = 'json' } = req.query;
+    const { 
+      startDate, 
+      endDate, 
+      machineId,
+      format = 'json' 
+    } = req.query;
     
-    let filteredWorkOrders = [...workOrders];
-
+    // Build work orders query with filters
+    let workOrdersQuery = supabaseAdmin.from('work_orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
     // Apply date filter
     if (startDate && typeof startDate === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        !wo.actualStartDate || new Date(wo.actualStartDate) >= new Date(startDate)
-      );
+      workOrdersQuery = workOrdersQuery.gte('created_at', startDate);
     }
     
     if (endDate && typeof endDate === 'string') {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
-        !wo.actualEndDate || new Date(wo.actualEndDate) <= new Date(endDate)
-      );
+      workOrdersQuery = workOrdersQuery.lte('created_at', endDate);
     }
 
-    // Group work orders by machine
-    const machineUtilization: { [key: string]: any } = {};
+    if (machineId && typeof machineId === 'string') {
+      workOrdersQuery = workOrdersQuery.eq('machine_id', machineId);
+    }
     
-    machines.forEach(machine => {
-      machineUtilization[machine.id] = {
+    // Get machines and work orders
+    const [{ data: workOrders, error: workOrdersError }, { data: machines, error: machinesError }] = await Promise.all([
+      workOrdersQuery,
+      supabaseAdmin.from('machines').select('*')
+    ]);
+    
+    if (workOrdersError) {
+      console.error('Work orders fetch error:', workOrdersError instanceof Error ? workOrdersError.message : JSON.stringify(workOrdersError));
+      throw workOrdersError;
+    }
+    
+    if (machinesError) {
+      console.error('Machines fetch error:', machinesError instanceof Error ? machinesError.message : JSON.stringify(machinesError));
+      throw machinesError;
+    }
+    
+    const filteredWorkOrders = workOrders || [];
+    const allMachines = machines || [];
+
+    // Group work orders by machine
+    const machineUtilization = allMachines.map(machine => {
+      const machineWorkOrders = filteredWorkOrders.filter(wo => wo.machine_id === machine.id);
+      
+      const totalWorkOrders = machineWorkOrders.length;
+      const completedWorkOrders = machineWorkOrders.filter(wo => wo.status === 'COMPLETED').length;
+      const inProgressWorkOrders = machineWorkOrders.filter(wo => wo.status === 'IN_PROGRESS').length;
+      const pendingWorkOrders = machineWorkOrders.filter(wo => wo.status === 'PENDING').length;
+      
+      const totalPlannedHours = machineWorkOrders.reduce((sum, wo) => sum + (wo.estimated_duration || 0), 0);
+      const totalActualHours = machineWorkOrders
+        .filter(wo => wo.actual_duration)
+        .reduce((sum, wo) => sum + (wo.actual_duration || 0), 0);
+      
+      const utilizationRate = totalPlannedHours > 0 ? (totalActualHours / totalPlannedHours) * 100 : 0;
+      
+      // Calculate average completion time for completed work orders
+      const completedOrdersWithDuration = machineWorkOrders.filter(wo => wo.status === 'COMPLETED' && wo.actual_duration);
+      const avgCompletionTime = completedOrdersWithDuration.length > 0 ? 
+        completedOrdersWithDuration.reduce((sum, wo) => sum + (wo.actual_duration || 0), 0) / completedOrdersWithDuration.length : 0;
+      
+      return {
         machineId: machine.id,
-        machineName: machine.name,
         machineCode: machine.code,
+        machineName: machine.name,
         category: machine.category,
         status: machine.status,
-        totalWorkOrders: 0,
-        completedWorkOrders: 0,
-        totalHours: 0,
-        avgCompletionTime: 0,
-        utilizationRate: 0
+        totalWorkOrders,
+        completedWorkOrders,
+        inProgressWorkOrders,
+        pendingWorkOrders,
+        totalPlannedHours,
+        totalActualHours,
+        totalHours: totalActualHours,
+        avgCompletionTime: Math.round(avgCompletionTime * 100) / 100,
+        utilizationRate: Math.round(utilizationRate * 100) / 100,
+        efficiency: completedWorkOrders > 0 ? Math.round((completedWorkOrders / totalWorkOrders) * 100) : 0
       };
     });
 
-    filteredWorkOrders.forEach(wo => {
-      if (machineUtilization[wo.machineId]) {
-        machineUtilization[wo.machineId].totalWorkOrders++;
-        
-        if (wo.status === 'COMPLETED') {
-          machineUtilization[wo.machineId].completedWorkOrders++;
-          
-          if (wo.actualDuration) {
-            machineUtilization[wo.machineId].totalHours += wo.actualDuration;
-          }
-        }
-      }
-    });
-
-    // Calculate averages and utilization rates
-    Object.values(machineUtilization).forEach((machine: any) => {
-      if (machine.completedWorkOrders > 0) {
-        machine.avgCompletionTime = parseFloat((machine.totalHours / machine.completedWorkOrders).toFixed(2));
-        machine.utilizationRate = parseFloat(((machine.completedWorkOrders / machine.totalWorkOrders) * 100).toFixed(2));
-      }
-    });
+    // Sort by utilization rate (highest first)
+    machineUtilization.sort((a, b) => b.utilizationRate - a.utilizationRate);
 
     const reportData: MachineUtilizationReport = {
       summary: {
-        totalMachines: machines.length,
-        activeMachines: machines.filter(m => m.status === 'active').length,
+        totalMachines: allMachines.length,
+        activeMachines: allMachines.filter(m => m.status === 'active').length,
         totalWorkOrders: filteredWorkOrders.length,
         completedWorkOrders: filteredWorkOrders.filter(wo => wo.status === 'COMPLETED').length,
+        
+
         period: {
           startDate: (startDate as string) || 'Başlangıç yok',
           endDate: (endDate as string) || 'Bitiş yok'
         },
         generatedAt: new Date().toISOString()
       },
-      machines: Object.values(machineUtilization)
+      machines: machineUtilization
     };
 
     if (format === 'csv') {
@@ -456,18 +514,40 @@ router.get('/bom-cost-analysis', authenticateToken, requireManagerAccess, async 
   try {
     const { machineId, format = 'json' } = req.query;
     
-    let filteredMachines = [...machines];
+    // Build machines query
+    let machinesQuery = supabaseAdmin.from('machines').select('*');
     
     if (machineId && typeof machineId === 'string') {
-      filteredMachines = filteredMachines.filter(m => m.id === machineId);
+      machinesQuery = machinesQuery.eq('id', machineId);
     }
+    
+    // Get machines and BOM items
+    const [{ data: machines, error: machinesError }, { data: bomItems, error: bomError }] = await Promise.all([
+      machinesQuery,
+      supabaseAdmin.from('bom_items')
+        .select(`
+          *,
+          materials!inner(code, name)
+        `)
+    ]);
+    
+    if (machinesError) {
+      console.error('Machines fetch error:', machinesError instanceof Error ? machinesError.message : JSON.stringify(machinesError));
+      throw machinesError;
+    }
+    
+    if (bomError) {
+      console.error('BOM items fetch error:', bomError instanceof Error ? bomError.message : JSON.stringify(bomError));
+      throw bomError;
+    }
+    
+    const filteredMachines = machines || [];
+    const allBomItems = bomItems || [];
 
     const bomAnalysis = filteredMachines.map(machine => {
-      const machineBOM = bomItems.filter(item => item.machineId === machine.id);
+      const machineBOM = allBomItems.filter(item => item.machine_id === machine.id);
       
-      const totalCost = machineBOM.reduce((sum, item) => 
-        sum + (item.quantity * item.unitPrice), 0
-      );
+      const totalCost = 0;
       
       const materialCount = machineBOM.length;
       
@@ -480,12 +560,11 @@ router.get('/bom-cost-analysis', authenticateToken, requireManagerAccess, async 
         totalCost,
         avgMaterialCost: materialCount > 0 ? parseFloat((totalCost / materialCount).toFixed(2)) : 0,
         bomItems: machineBOM.map(item => ({
-          materialCode: item.materialCode,
-          materialName: item.materialName,
+          materialCode: item.materials?.code || '',
+          materialName: item.materials?.name || '',
           quantity: item.quantity,
           unit: item.unit,
-          unitPrice: item.unitPrice,
-          totalCost: item.quantity * item.unitPrice
+          totalCost: 0
         }))
       };
     });
@@ -513,7 +592,7 @@ router.get('/bom-cost-analysis', authenticateToken, requireManagerAccess, async 
             materialName: item.materialName,
             quantity: item.quantity,
             unit: item.unit,
-            unitPrice: item.unitPrice,
+
             totalCost: item.totalCost
           });
         });
@@ -526,7 +605,7 @@ router.get('/bom-cost-analysis', authenticateToken, requireManagerAccess, async 
         { key: 'materialName', header: 'Malzeme Adı' },
         { key: 'quantity', header: 'Miktar' },
         { key: 'unit', header: 'Birim' },
-        { key: 'unitPrice', header: 'Birim Fiyat' },
+
         { key: 'totalCost', header: 'Toplam Maliyet' }
       ]);
       

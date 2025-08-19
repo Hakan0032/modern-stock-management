@@ -11,3 +11,5 @@ app.listen(PORT, () => {
   console.log(`🔧 Work Orders API: http://localhost:${PORT}/api/workorders`);
   console.log(`❤️  Health Check: http://localhost:${PORT}/api/health`);
 });
+
+// Trigger nodemon restart

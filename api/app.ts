@@ -15,6 +15,9 @@ import workOrdersRoutes from './routes/workorders.ts';
 import dashboardRoutes from './routes/dashboard.ts';
 import adminRoutes from './routes/admin.ts';
 import reportsRoutes from './routes/reports.ts';
+import suppliersRoutes from './routes/suppliers.ts';
+import categoriesRoutes from './routes/categories.ts';
+import settingsRoutes from './routes/settings.ts';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +44,9 @@ app.use('/api/workorders', workOrdersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/settings', settingsRoutes);
 
 /**
  * health
@@ -50,6 +56,26 @@ app.use('/api/health', (req: Request, res: Response, next: NextFunction): void =
     success: true,
     message: 'ok'
   });
+});
+
+/**
+ * test endpoint to check Supabase data
+ */
+app.use('/api/test/materials', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { dbAdmin } = await import('./lib/supabase.ts');
+    const materials = await dbAdmin.materials.getAll();
+    res.status(200).json({
+      success: true,
+      data: materials,
+      count: materials.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 });
 
 /**

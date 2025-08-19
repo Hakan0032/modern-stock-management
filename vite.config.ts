@@ -9,7 +9,7 @@ export default defineConfig({
     react({
       babel: {
         plugins: [
-          'react-dev-locator',
+          ...(process.env.NODE_ENV === 'development' ? ['react-dev-locator'] : []),
         ],
       },
     }),
@@ -24,6 +24,15 @@ export default defineConfig({
     }), 
     tsconfigPaths(),
   ],
+  build: {
+    sourcemap: true,
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

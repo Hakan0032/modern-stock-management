@@ -44,7 +44,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
         materialCode: material.code,
         materialName: material.name,
         unit: material.unit,
-        unitPrice: material.unitPrice
+
       };
       
       if (isEdit) {
@@ -69,7 +69,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
       materialName: newItem.materialName!,
       quantity: newItem.quantity!,
       unit: newItem.unit!,
-      unitPrice: newItem.unitPrice!,
+
       notes: newItem.notes
     };
 
@@ -160,7 +160,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
       materialName: item.materialName,
       quantity: item.quantity,
       unit: item.unit,
-      unitPrice: item.unitPrice,
+
       notes: item.notes
     });
   };
@@ -170,12 +170,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
     setEditItem({});
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY'
-    }).format(amount);
-  };
+
 
   return (
     <div>
@@ -270,12 +265,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Birim
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Birim Fiyat
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Toplam
-                </th>
+
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Notlar
                 </th>
@@ -314,12 +304,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {item.unit}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {formatCurrency(item.unitPrice)}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {formatCurrency(item.quantity * item.unitPrice)}
-                  </td>
+
                   <td className="px-6 py-4">
                     {editingItem === item.id ? (
                       <input
@@ -369,19 +354,7 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-gray-900">
-                  Toplam Maliyet:
-                </td>
-                <td className="px-6 py-3 text-sm font-bold text-gray-900">
-                  {formatCurrency(
-                    bomItems.reduce((total, item) => total + (item.quantity * item.unitPrice), 0)
-                  )}
-                </td>
-                <td colSpan={2}></td>
-              </tr>
-            </tfoot>
+
           </table>
         </div>
       )}

@@ -17,15 +17,15 @@ import type {
 // Mock Users
 export const users: User[] = [
   {
-    id: '1',
+    id: 'admin-1',
     username: 'admin',
-    email: 'admin@mermermakinesi.com',
-    password: 'hashed_password_1',
-    firstName: 'Sistem',
-    lastName: 'Yöneticisi',
+    email: 'admin@test.com',
+    password: 'admin123',
+    firstName: 'Admin',
+    lastName: 'User',
     role: 'admin',
     department: 'IT',
-    phone: '+90 555 123 4567',
+    phone: '+90 555 000 0000',
     isActive: true,
     lastLogin: '2024-01-15T10:30:00Z',
     createdAt: '2024-01-01T00:00:00Z',
@@ -113,12 +113,12 @@ export const materials: Material[] = [
     code: 'ELK001',
     name: 'Sigorta 16A',
     description: 'Elektrik panoları için 16A sigorta',
-    category: 'electrical',
-    unit: 'piece',
+    category: 'Elektrik',
+    unit: 'Adet',
     currentStock: 100,
     minStockLevel: 20,
     maxStockLevel: 200,
-    unitPrice: 5.50,
+
     supplier: 'Elektrik Malzemeleri A.Ş.',
     location: 'A-01-01',
     barcode: '1234567890123',
@@ -131,11 +131,11 @@ export const materials: Material[] = [
     name: 'Kontaktör 25A',
     description: 'Motor kontrol için 25A kontaktör',
     category: 'Elektrik',
-    unit: 'piece',
+    unit: 'Adet',
     currentStock: 15,
     minStockLevel: 10,
     maxStockLevel: 50,
-    unitPrice: 45.00,
+
     supplier: 'Elektrik Malzemeleri A.Ş.',
     location: 'A-01-02',
     barcode: '1234567890124',
@@ -147,12 +147,12 @@ export const materials: Material[] = [
     code: 'PAN001',
     name: 'Pano Kapısı 400x600',
     description: 'Elektrik panosu kapısı 400x600mm',
-    category: 'panel',
+    category: 'Panel',
     unit: 'Adet',
     currentStock: 25,
     minStockLevel: 5,
     maxStockLevel: 30,
-    unitPrice: 120.00,
+
     supplier: 'Pano Sistemleri Ltd.',
     location: 'B-01-01',
     barcode: '1234567890125',
@@ -164,12 +164,12 @@ export const materials: Material[] = [
     code: 'MEK001',
     name: 'Vida M8x20',
     description: 'Altı köşe başlı vida M8x20mm',
-    category: 'mechanical',
+    category: 'Mekanik',
     unit: 'Adet',
     currentStock: 500,
     minStockLevel: 100,
     maxStockLevel: 1000,
-    unitPrice: 0.25,
+
     supplier: 'Mekanik Parça Tedarik',
     location: 'C-01-01',
     barcode: '1234567890126',
@@ -181,12 +181,12 @@ export const materials: Material[] = [
     code: 'ELK003',
     name: 'Kablo 2.5mm²',
     description: 'Elektrik kablosu 2.5mm² kesit',
-    category: 'electrical',
-    unit: 'meter',
+    category: 'Elektrik',
+    unit: 'Metre',
     currentStock: 8,
     minStockLevel: 50,
     maxStockLevel: 500,
-    unitPrice: 3.20,
+
     supplier: 'Elektrik Malzemeleri A.Ş.',
     location: 'A-02-01',
     barcode: '1234567890127',
@@ -247,24 +247,24 @@ export const machines: Machine[] = [
 // Mock BOM Items
 export const bomItems: BOMItem[] = [
   // Silim Makinesi BOM
-  { id: '1', machineId: '1', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 4, unit: 'piece', unitPrice: 5.50, notes: 'Ana güç sigortası' },
-  { id: '2', machineId: '1', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 2, unit: 'piece', unitPrice: 45.00, notes: 'Motor kontaktörü' },
-  { id: '3', machineId: '1', materialId: '3', materialCode: 'PAN001', materialName: 'Pano Kapısı 400x600', quantity: 1, unit: 'piece', unitPrice: 120.00, notes: 'Elektrik panosu' },
-  { id: '4', machineId: '1', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 20, unit: 'piece', unitPrice: 0.25, notes: 'Montaj vidaları' },
-  { id: '5', machineId: '1', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 15, unit: 'meter', unitPrice: 3.20, notes: 'Güç kablosu' },
+  { id: '1', machineId: '1', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 4, unit: 'Adet', notes: 'Ana güç sigortası' },
+  { id: '2', machineId: '1', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 2, unit: 'Adet', notes: 'Motor kontaktörü' },
+  { id: '3', machineId: '1', materialId: '3', materialCode: 'PAN001', materialName: 'Pano Kapısı 400x600', quantity: 1, unit: 'Adet', notes: 'Elektrik panosu' },
+  { id: '4', machineId: '1', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 20, unit: 'Adet', notes: 'Montaj vidaları' },
+  { id: '5', machineId: '1', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 15, unit: 'Metre', notes: 'Güç kablosu' },
   
   // Tırmık Makinesi BOM
-  { id: '6', machineId: '2', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 2, unit: 'piece', unitPrice: 5.50, notes: 'Güç sigortası' },
-  { id: '7', machineId: '2', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 1, unit: 'piece', unitPrice: 45.00, notes: 'Kontaktör' },
-  { id: '8', machineId: '2', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 15, unit: 'piece', unitPrice: 0.25, notes: 'Montaj vidaları' },
-  { id: '9', machineId: '2', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 10, unit: 'meter', unitPrice: 3.20, notes: 'Kablo bağlantısı' },
+  { id: '6', machineId: '2', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 2, unit: 'Adet', notes: 'Güç sigortası' },
+  { id: '7', machineId: '2', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 1, unit: 'Adet', notes: 'Kontaktör' },
+  { id: '8', machineId: '2', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 15, unit: 'Adet', notes: 'Montaj vidaları' },
+  { id: '9', machineId: '2', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 10, unit: 'Metre', notes: 'Kablo bağlantısı' },
   
   // Yarma Makinesi BOM
-  { id: '10', machineId: '3', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 6, unit: 'piece', unitPrice: 5.50, notes: 'Ana güç sigortası' },
-  { id: '11', machineId: '3', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 3, unit: 'piece', unitPrice: 45.00, notes: 'Motor kontaktörü' },
-  { id: '12', machineId: '3', materialId: '3', materialCode: 'PAN001', materialName: 'Pano Kapısı 400x600', quantity: 2, unit: 'piece', unitPrice: 120.00, notes: 'Elektrik panosu' },
-  { id: '13', machineId: '3', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 30, unit: 'piece', unitPrice: 0.25, notes: 'Montaj vidaları' },
-  { id: '14', machineId: '3', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 25, unit: 'meter', unitPrice: 3.20, notes: 'Güç kablosu' }
+  { id: '10', machineId: '3', materialId: '1', materialCode: 'ELK001', materialName: 'Sigorta 16A', quantity: 6, unit: 'Adet', notes: 'Ana güç sigortası' },
+  { id: '11', machineId: '3', materialId: '2', materialCode: 'ELK002', materialName: 'Kontaktör 25A', quantity: 3, unit: 'Adet', notes: 'Motor kontaktörü' },
+  { id: '12', machineId: '3', materialId: '3', materialCode: 'PAN001', materialName: 'Pano Kapısı 400x600', quantity: 2, unit: 'Adet', notes: 'Elektrik panosu' },
+  { id: '13', machineId: '3', materialId: '4', materialCode: 'MEK001', materialName: 'Vida M8x20', quantity: 30, unit: 'Adet', notes: 'Montaj vidaları' },
+  { id: '14', machineId: '3', materialId: '5', materialCode: 'ELK003', materialName: 'Kablo 2.5mm²', quantity: 25, unit: 'Metre', notes: 'Güç kablosu' }
 ];
 
 // Mock Work Orders
@@ -346,8 +346,7 @@ export const materialMovements: MaterialMovement[] = [
     type: 'IN',
     quantity: 50,
     unit: 'Adet',
-    unitPrice: 5.50,
-    totalPrice: 275.00,
+
     reason: 'Satın Alma',
     reference: 'F2024001',
     location: 'A-01-01',
@@ -362,8 +361,7 @@ export const materialMovements: MaterialMovement[] = [
     type: 'OUT',
     quantity: 4,
     unit: 'Adet',
-    unitPrice: 45.00,
-    totalPrice: 180.00,
+
     reason: 'Üretim',
     reference: 'WO-2024-001',
     location: 'A-01-02',
@@ -377,9 +375,8 @@ export const materialMovements: MaterialMovement[] = [
     materialName: 'Kablo 2.5mm²',
     type: 'OUT',
     quantity: 30,
-    unit: 'meter',
-    unitPrice: 3.20,
-    totalPrice: 96.00,
+    unit: 'Metre',
+
     reason: 'Üretim',
     reference: 'WO-2024-001',
     location: 'A-02-01',
@@ -394,8 +391,7 @@ export const materialMovements: MaterialMovement[] = [
     type: 'IN',
     quantity: 10,
     unit: 'Adet',
-    unitPrice: 120.00,
-    totalPrice: 1200.00,
+
     reason: 'Satın Alma',
     reference: 'F2024002',
     location: 'B-01-01',
@@ -410,8 +406,7 @@ export const materialMovements: MaterialMovement[] = [
     type: 'OUT',
     quantity: 40,
     unit: 'Adet',
-    unitPrice: 0.25,
-    totalPrice: 10.00,
+
     reason: 'Üretim',
     reference: 'WO-2024-001',
     location: 'C-01-01',

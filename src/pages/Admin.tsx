@@ -42,7 +42,7 @@ const Admin: React.FC = () => {
       // Mock user data since we don't have a users endpoint
       const mockUsers: User[] = [
         {
-          id: '1',
+          id: '550e8400-e29b-41d4-a716-446655440011',
           username: 'admin_user',
           email: 'admin@mermer.com',
           password: 'hashed_password',
@@ -57,7 +57,7 @@ const Admin: React.FC = () => {
           updatedAt: new Date().toISOString()
         },
         {
-          id: '2',
+          id: '550e8400-e29b-41d4-a716-446655440012',
           username: 'depo_sorumlusu',
           email: 'depo@mermer.com',
           password: 'hashed_password',
@@ -72,7 +72,7 @@ const Admin: React.FC = () => {
           updatedAt: new Date().toISOString()
         },
         {
-          id: '3',
+          id: '550e8400-e29b-41d4-a716-446655440013',
           username: 'planlama_uzman',
           email: 'planlama@mermer.com',
           password: 'hashed_password',
@@ -87,7 +87,7 @@ const Admin: React.FC = () => {
           updatedAt: new Date().toISOString()
         },
         {
-          id: '4',
+          id: '550e8400-e29b-41d4-a716-446655440014',
           username: 'teknisyen_user',
           email: 'teknisyen@mermer.com',
           password: 'hashed_password',
@@ -159,18 +159,41 @@ const Admin: React.FC = () => {
   };
 
   const handleDeleteUser = async (id: string) => {
+    console.log('Admin - Delete user button clicked for ID:', id);
+    console.log('Admin - Current users count:', users.length);
     if (!confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?')) {
       return;
     }
 
     try {
       setUsers(prev => prev.filter(user => user.id !== id));
+      console.log('Admin - User deleted, new count:', users.filter(user => user.id !== id).length);
       toast.success('Başarılı', {
         description: 'Kullanıcı başarıyla silindi'
       });
     } catch (error) {
       toast.error('Hata', {
         description: 'Kullanıcı silinirken hata oluştu'
+      });
+    }
+  };
+
+  const handleEditUser = async (id: string) => {
+    console.log('Admin - Edit user button clicked for ID:', id);
+    try {
+      const user = users.find(u => u.id === id);
+      console.log('Admin - User found:', user ? 'Yes' : 'No');
+      if (user) {
+        console.log('Admin - Editing user:', user.firstName, user.lastName);
+        toast.info('Bilgi', {
+          description: `${user.firstName} ${user.lastName} kullanıcısı düzenleniyor...`
+        });
+        // Here you would typically open an edit modal or navigate to edit page
+        // For now, just show a toast message
+      }
+    } catch (error) {
+      toast.error('Hata', {
+        description: 'Kullanıcı düzenlenirken hata oluştu'
       });
     }
   };
@@ -478,23 +501,24 @@ const Admin: React.FC = () => {
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => handleUserToggle(user.id, user.isActive)}
-                          className={`p-1 rounded ${user.isActive
-                            ? 'text-red-600 hover:text-red-900'
-                            : 'text-green-600 hover:text-green-900'
+                          className={`p-1 rounded cursor-pointer transition-colors ${user.isActive
+                            ? 'text-red-600 hover:text-red-900 hover:bg-red-50'
+                            : 'text-green-600 hover:text-green-900 hover:bg-green-50'
                             }`}
                           title={user.isActive ? 'Pasif Et' : 'Aktif Et'}
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                          onClick={() => handleEditUser(user.id)}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded cursor-pointer transition-colors"
                           title="Düzenle"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                          className="text-red-600 hover:text-red-900 hover:bg-red-50 p-1 rounded cursor-pointer transition-colors"
                           title="Sil"
                         >
                           <Trash2 className="w-4 h-4" />

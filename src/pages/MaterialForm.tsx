@@ -13,6 +13,7 @@ interface MaterialFormData {
   category: string;
   unit: string;
   unitPrice: number;
+  quantity: number;
   minLevel: number;
   maxLevel: number;
   supplierId: number | null;
@@ -34,6 +35,7 @@ const MaterialForm: React.FC = () => {
     category: 'Hammadde',
     unit: 'Adet',
     unitPrice: 0,
+    quantity: 0,
     minLevel: 0,
     maxLevel: 0,
     supplierId: null
@@ -71,6 +73,7 @@ const MaterialForm: React.FC = () => {
         category: material.category || 'Hammadde',
         unit: material.unit || 'Adet',
         unitPrice: material.unitPrice || 0,
+        quantity: material.quantity || 0,
         minLevel: material.minLevel || 0,
         maxLevel: material.maxLevel || 0,
         supplierId: material.supplierId || null
@@ -106,13 +109,28 @@ const MaterialForm: React.FC = () => {
     try {
       setSubmitting(true);
       
+      // Backend API'nin beklediği field name'lere dönüştür
+      const apiData = {
+        code: formData.code,
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        unit: formData.unit,
+        quantity: formData.quantity,
+        minStockLevel: formData.minLevel,
+        maxStockLevel: formData.maxLevel,
+        supplier: formData.supplierId,
+        location: null,
+        barcode: null
+      };
+      
       if (isEdit) {
-        await api.put(`/materials/${id}`, formData);
+        await api.put(`/materials/${id}`, apiData);
         toast.success('Başarılı', {
           description: 'Malzeme başarıyla güncellendi'
         });
       } else {
-        await api.post('/materials', formData);
+        await api.post('/materials', apiData);
         toast.success('Başarılı', {
           description: 'Malzeme başarıyla oluşturuldu'
         });
@@ -120,8 +138,12 @@ const MaterialForm: React.FC = () => {
       
       navigate('/materials');
     } catch (error: any) {
+      const errorData = error.response?.data?.error;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' ? JSON.stringify(errorData) : 
+                          'İşlem sırasında hata oluştu';
       toast.error('Hata', {
-        description: error.response?.data?.error || 'İşlem sırasında hata oluştu'
+        description: errorMessage
       });
     } finally {
       setSubmitting(false);
@@ -143,15 +165,15 @@ const MaterialForm: React.FC = () => {
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/materials')}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               {isEdit ? 'Malzeme Düzenle' : 'Yeni Malzeme'}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               {isEdit ? 'Malzeme bilgilerini güncelleyin' : 'Yeni malzeme ekleyin'}
             </p>
           </div>
@@ -159,17 +181,17 @@ const MaterialForm: React.FC = () => {
       </div>
 
       {/* Form */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
               <Package className="w-5 h-5 mr-2" />
               Temel Bilgiler
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Malzeme Kodu *
                 </label>
                 <input
@@ -179,13 +201,13 @@ const MaterialForm: React.FC = () => {
                   value={formData.code}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Örn: MAL-001"
                 />
               </div>
               
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Malzeme Adı *
                 </label>
                 <input
@@ -195,13 +217,13 @@ const MaterialForm: React.FC = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Malzeme adını girin"
                 />
               </div>
               
               <div className="md:col-span-2">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Açıklama
                 </label>
                 <textarea
@@ -210,7 +232,7 @@ const MaterialForm: React.FC = () => {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Malzeme açıklaması"
                 />
               </div>
@@ -219,12 +241,12 @@ const MaterialForm: React.FC = () => {
 
           {/* Category and Unit */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Kategori ve Birim
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Kategori
                 </label>
                 <select
@@ -232,7 +254,7 @@ const MaterialForm: React.FC = () => {
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
@@ -243,7 +265,7 @@ const MaterialForm: React.FC = () => {
               </div>
               
               <div>
-                <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Birim
                 </label>
                 <select
@@ -251,7 +273,7 @@ const MaterialForm: React.FC = () => {
                   name="unit"
                   value={formData.unit}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   {units.map((unit) => (
                     <option key={unit} value={unit}>
@@ -262,7 +284,7 @@ const MaterialForm: React.FC = () => {
               </div>
               
               <div>
-                <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="unitPrice" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Birim Fiyat (₺)
                 </label>
                 <input
@@ -273,8 +295,32 @@ const MaterialForm: React.FC = () => {
                   onChange={handleInputChange}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quantity */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Miktar
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+              <div>
+                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Başlangıç Miktarı
+                </label>
+                <input
+                  type="number"
+                  id="quantity"
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleInputChange}
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="0"
                 />
               </div>
             </div>
@@ -282,12 +328,12 @@ const MaterialForm: React.FC = () => {
 
           {/* Stock Levels */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Stok Seviyeleri
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="minLevel" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="minLevel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Minimum Stok Seviyesi
                 </label>
                 <input
@@ -297,14 +343,14 @@ const MaterialForm: React.FC = () => {
                   value={formData.minLevel}
                   onChange={handleInputChange}
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="0"
                 />
               </div>
               
               <div>
-                <label htmlFor="maxLevel" className="block text-sm font-medium text-gray-700 mb-2">
-                  Maksimum Stok Seviyesi
+                <label htmlFor="maxLevel" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Maksimum Stok Seviyesi (İsteğe Bağlı)
                 </label>
                 <input
                   type="number"
@@ -313,7 +359,7 @@ const MaterialForm: React.FC = () => {
                   value={formData.maxLevel}
                   onChange={handleInputChange}
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="0"
                 />
               </div>
@@ -322,11 +368,11 @@ const MaterialForm: React.FC = () => {
 
           {/* Supplier */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Tedarikçi
             </h3>
             <div>
-              <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Ana Tedarikçi
               </label>
               <select
@@ -334,7 +380,7 @@ const MaterialForm: React.FC = () => {
                 name="supplierId"
                 value={formData.supplierId || ''}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Tedarikçi seçin</option>
                 {suppliers.map((supplier) => (
@@ -347,11 +393,11 @@ const MaterialForm: React.FC = () => {
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => navigate('/materials')}
-              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
             >
               İptal
             </button>

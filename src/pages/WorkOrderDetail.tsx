@@ -177,13 +177,20 @@ const WorkOrderDetail: React.FC = () => {
 
   const formatDate = (date: string | undefined) => {
     if (!date) return '-';
-    return new Date(date).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return '-';
+      return dateObj.toLocaleDateString('tr-TR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return '-';
+    }
   };
 
   const getStatusColor = (status: string) => {

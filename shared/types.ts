@@ -78,7 +78,7 @@ export interface Material {
   currentStock: number;
   minStockLevel: number;
   maxStockLevel: number;
-  unitPrice: number;
+
   supplier?: string;
   location: string;
   barcode?: string;
@@ -87,8 +87,8 @@ export interface Material {
   updatedAt: string;
 }
 
-export type MaterialCategory = 'electrical' | 'panel' | 'mechanical' | 'other';
-export type MaterialUnit = 'piece' | 'meter' | 'kilogram' | 'liter';
+export type MaterialCategory = 'Elektrik' | 'Panel' | 'Mekanik' | 'Diğer';
+export type MaterialUnit = 'Adet' | 'Metre' | 'Kilogram' | 'Litre';
 
 // Material Movement types
 export interface MaterialMovement {
@@ -99,8 +99,7 @@ export interface MaterialMovement {
   type: 'IN' | 'OUT';
   quantity: number;
   unit: string;
-  unitPrice: number;
-  totalPrice: number;
+
   reason: string;
   reference?: string;
   location: string;
@@ -144,7 +143,7 @@ export interface BOMItem {
   materialName: string;
   quantity: number;
   unit: string;
-  unitPrice: number;
+
   notes?: string;
 }
 
@@ -207,7 +206,6 @@ export interface DashboardStats {
     total: number;
     lowStock: number;
     outOfStock: number;
-    totalValue: number;
   };
   workOrders: {
     total: number;
@@ -249,7 +247,6 @@ export interface RecentMovement {
   type: 'IN' | 'OUT';
   quantity: number;
   unit: string;
-  totalPrice: number;
   reason: string;
   location: string;
   createdAt: string;
@@ -286,7 +283,7 @@ export interface TopConsumedMaterial {
   materialName: string;
   unit: string;
   totalQuantity: number;
-  totalValue: number;
+
   movementCount: number;
 }
 
@@ -402,7 +399,7 @@ export interface SystemLog {
 export interface StockReport {
   summary: {
     totalItems: number;
-    totalValue: number;
+
     lowStockItems: number;
     outOfStockItems: number;
     generatedAt: string;
@@ -416,8 +413,8 @@ export interface StockReport {
     minStockLevel: number;
     maxStockLevel: number;
     unit: string;
-    unitPrice: number;
-    totalValue: number;
+
+
     stockStatus: string;
     lastUpdated: string;
   }>;
@@ -442,8 +439,8 @@ export interface MovementReport {
     type: string;
     quantity: number;
     unit: string;
-    unitPrice: number;
-    totalPrice: number;
+
+
     reason: string;
     reference?: string;
     location: string;
@@ -529,7 +526,7 @@ export interface BOMCostAnalysisReport {
       materialName: string;
       quantity: number;
       unit: string;
-    unitPrice: number;
+
       totalCost: number;
     }>;
   }>;

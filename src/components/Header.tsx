@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Bell, Search, LogOut, User, Settings } from 'lucide-react';
+import { Bell, Search, LogOut, User, Settings, Moon, Sun } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../hooks/useTheme';
 import { cn } from '../utils';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { theme, toggleTheme, isDark } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -16,80 +18,93 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-white/80 backdrop-blur-lg shadow-xl border-b border-white/20 sticky top-0 z-40">
+    <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg shadow-xl border-b border-white/20 dark:border-gray-700/20 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Search */}
           <div className="flex-1 max-w-md">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-slate-400" />
+                <Search className="h-5 w-5 text-slate-400 dark:text-gray-400" />
               </div>
               <input
                 type="text"
                 placeholder="Ara..."
-                className="block w-full pl-12 pr-4 py-3 border border-slate-200/50 rounded-xl leading-5 bg-white/70 backdrop-blur-sm placeholder-slate-500 focus:outline-none focus:placeholder-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 sm:text-sm shadow-sm hover:shadow-md transition-all duration-300"
+                className="block w-full pl-12 pr-4 py-3 border border-slate-200/50 dark:border-gray-600/50 rounded-xl leading-5 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm placeholder-slate-500 dark:placeholder-gray-400 text-slate-900 dark:text-white focus:outline-none focus:placeholder-slate-400 dark:focus:placeholder-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 sm:text-sm shadow-sm hover:shadow-md transition-all duration-300"
               />
             </div>
           </div>
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-3 text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-200 dark:hover:from-gray-700 dark:hover:to-gray-600 rounded-xl transition-all duration-300 hover:shadow-lg group"
+            title={isDark ? 'Açık temaya geç' : 'Koyu temaya geç'}
+          >
+            {isDark ? (
+              <Sun className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
+            ) : (
+              <Moon className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
+            )}
+          </button>
+
           {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-3 text-slate-600 hover:text-slate-800 hover:bg-gradient-to-r hover:from-blue-100 hover:to-blue-200 rounded-xl relative transition-all duration-300 hover:shadow-lg group"
+              className="p-3 text-slate-600 dark:text-gray-300 hover:text-slate-800 dark:hover:text-white hover:bg-gradient-to-r hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800 dark:hover:to-blue-700 rounded-xl relative transition-all duration-300 hover:shadow-lg group"
             >
               <Bell className="h-6 w-6 group-hover:scale-110 transition-transform duration-300" />
               <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-gradient-to-r from-red-500 to-red-600 ring-2 ring-white shadow-lg animate-pulse"></span>
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 z-50">
+              <div className="absolute right-0 mt-3 w-80 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/20 z-50">
                 <div className="p-6 border-b border-white/20">
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">Bildirimler</h3>
+                  <h3 className="text-lg font-bold bg-gradient-to-r from-slate-700 to-slate-900 dark:from-gray-200 dark:to-gray-100 bg-clip-text text-transparent">Bildirimler</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  <div className="p-4 hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100/50 border-b border-white/10 transition-all duration-300">
+                  <div className="p-4 hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100/50 dark:hover:from-red-900/20 dark:hover:to-red-800/20 border-b border-white/10 dark:border-gray-700/20 transition-all duration-300">
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0">
                         <div className="w-3 h-3 bg-gradient-to-r from-red-500 to-red-600 rounded-full mt-2 shadow-sm"></div>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Kritik stok seviyesi</p>
-                        <p className="text-sm text-slate-600">Malzeme A001 kritik seviyede</p>
-                        <p className="text-xs text-slate-500 mt-1">5 dakika önce</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-gray-200">Kritik stok seviyesi</p>
+                        <p className="text-sm text-slate-600 dark:text-gray-300">Malzeme A001 kritik seviyede</p>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">5 dakika önce</p>
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100/50 border-b border-white/10 transition-all duration-300">
+                  <div className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100/50 dark:hover:from-blue-900/20 dark:hover:to-blue-800/20 border-b border-white/10 dark:border-gray-700/20 transition-all duration-300">
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0">
                         <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full mt-2 shadow-sm"></div>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Yeni iş emri</p>
-                        <p className="text-sm text-slate-600">WO-2024-001 oluşturuldu</p>
-                        <p className="text-xs text-slate-500 mt-1">1 saat önce</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-gray-200">Yeni iş emri</p>
+                        <p className="text-sm text-slate-600 dark:text-gray-300">WO-2024-001 oluşturuldu</p>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">1 saat önce</p>
                       </div>
                     </div>
                   </div>
-                  <div className="p-4 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100/50 transition-all duration-300">
+                  <div className="p-4 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-100/50 dark:hover:from-green-900/20 dark:hover:to-green-800/20 transition-all duration-300">
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0">
                         <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-green-600 rounded-full mt-2 shadow-sm"></div>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-800">Stok hareketi</p>
-                        <p className="text-sm text-slate-600">100 adet malzeme girişi yapıldı</p>
-                        <p className="text-xs text-slate-500 mt-1">2 saat önce</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-gray-200">Stok hareketi</p>
+                        <p className="text-sm text-slate-600 dark:text-gray-300">100 adet malzeme girişi yapıldı</p>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">2 saat önce</p>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="p-4 border-t border-white/20">
-                  <button className="w-full text-center text-sm bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent hover:from-blue-700 hover:to-blue-900 font-semibold transition-all duration-300">
+                <div className="p-4 border-t border-white/20 dark:border-gray-700/20">
+                  <button className="w-full text-center text-sm bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent hover:from-blue-700 hover:to-blue-900 dark:hover:from-blue-300 dark:hover:to-blue-200 font-semibold transition-all duration-300">
                     Tüm bildirimleri görüntüle
                   </button>
                 </div>
@@ -101,7 +116,7 @@ const Header: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-200 transition-all duration-300 hover:shadow-lg group"
+              className="flex items-center space-x-3 p-3 rounded-xl hover:bg-gradient-to-r hover:from-slate-100 hover:to-slate-200 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-300 hover:shadow-lg group"
             >
               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
                 <span className="text-sm font-bold text-white">
@@ -109,20 +124,20 @@ const Header: React.FC = () => {
                 </span>
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-slate-800">{(user?.firstName && user?.lastName) ? `${user.firstName} ${user.lastName}` : (user?.email || 'Kullanıcı')}</p>
-                <p className="text-xs text-slate-500 font-medium">{user?.role || 'Kullanıcı'}</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-gray-200">{(user?.firstName && user?.lastName) ? `${user.firstName} ${user.lastName}` : (user?.email || 'Kullanıcı')}</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">{user?.role || 'Kullanıcı'}</p>
               </div>
             </button>
 
             {/* Dropdown Menu */}
             {showUserMenu && (
-              <div className="absolute right-0 mt-3 w-52 bg-white/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 py-2 z-50">
+              <div className="absolute right-0 mt-3 w-52 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/20 py-2 z-50">
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
                     navigate('/profile');
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100/50 transition-all duration-300 rounded-xl mx-1"
+                  className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-slate-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100/50 dark:hover:from-blue-900/20 dark:hover:to-blue-800/20 transition-all duration-300 rounded-xl mx-1"
                 >
                   <User className="w-5 h-5 text-blue-600" />
                   <span className="font-medium">Profil</span>
@@ -133,7 +148,7 @@ const Header: React.FC = () => {
                     setShowUserMenu(false);
                     navigate('/settings');
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-slate-700 hover:bg-gradient-to-r hover:from-slate-50 hover:to-slate-100/50 transition-all duration-300 rounded-xl mx-1"
+                  className="flex items-center space-x-3 w-full px-4 py-3 text-sm text-slate-700 dark:text-gray-200 hover:bg-gradient-to-r hover:from-slate-50 hover:to-slate-100/50 dark:hover:from-gray-700/20 dark:hover:to-gray-600/20 transition-all duration-300 rounded-xl mx-1"
                 >
                   <Settings className="w-5 h-5 text-slate-600" />
                   <span className="font-medium">Ayarlar</span>

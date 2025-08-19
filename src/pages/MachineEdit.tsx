@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '../utils/api';
 
 interface Machine {
   id: string;
@@ -46,14 +47,8 @@ const MachineEdit: React.FC = () => {
 
   const fetchMachine = async () => {
     try {
-      const response = await fetch(`/api/machines/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMachine(data);
-      } else {
-        toast.error('Makine bilgileri yüklenemedi');
-        navigate('/machines');
-      }
+      const response = await api.get(`/machines/${id}`);
+      setMachine(response.data.data || response.data);
     } catch (error) {
       console.error('Error fetching machine:', error instanceof Error ? error.message : String(error));
       toast.error('Makine bilgileri yüklenirken hata oluştu');
@@ -91,23 +86,12 @@ const MachineEdit: React.FC = () => {
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/machines/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...machine,
-          updatedAt: new Date().toISOString()
-        }),
+      await api.put(`/machines/${id}`, {
+        ...machine,
+        updatedAt: new Date().toISOString()
       });
-
-      if (response.ok) {
-        toast.success('Makine başarıyla güncellendi');
-        navigate(`/machines/${id}`);
-      } else {
-        toast.error('Makine güncellenirken hata oluştu');
-      }
+      toast.success('Makine başarıyla güncellendi');
+      navigate(`/machines/${id}`);
     } catch (error) {
       console.error('Error updating machine:', error instanceof Error ? error.message : String(error));
       toast.error('Makine güncellenirken hata oluştu');

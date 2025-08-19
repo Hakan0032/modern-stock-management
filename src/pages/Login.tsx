@@ -1,116 +1,90 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, Package } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
-import { cn } from '../utils';
+import { cn } from '../utils/cn';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const { login, isAuthenticated } = useAuthStore();
+  const { login } = useAuthStore();
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  const from = location.state?.from?.pathname || '/dashboard';
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error('Hata', {
-        description: 'Email ve şifre gereklidir'
-      });
-      return;
-    }
-
     setIsLoading(true);
     
     try {
+      console.log('🚀 Login Page: Giriş denemesi başlatıldı');
+      console.log('📧 Login Page: Email:', email);
+      console.log('🔑 Login Page: Password length:', password?.length || 0);
+      console.log('🌐 Login Page: Current URL:', window.location.href);
+      
+      // Auth store'u güncelle - gerçek API çağrısı
+      console.log('📞 Login Page: Auth store login çağrılıyor...');
       await login({ email, password });
-      toast.success('Başarılı', {
-        description: 'Giriş başarılı'
-      });
-      navigate(from, { replace: true });
+      console.log('✅ Login Page: Login başarılı!');
+      
+      toast.success('Giriş başarılı!');
+      navigate('/dashboard', { replace: true });
+      
     } catch (error: any) {
-      toast.error('Giriş Hatası', {
-        description: error.response?.data?.error || 'Giriş yapılamadı'
+      console.error('❌ Login Page: Login hatası detayı:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        cause: error.cause
       });
+      
+      // Kullanıcıya gösterilecek hata mesajı
+      const userMessage = error.message || 'Giriş yapılamadı. Lütfen bilgilerinizi kontrol edin.';
+      console.log('💬 Login Page: Kullanıcıya gösterilen mesaj:', userMessage);
+      
+      toast.error(userMessage);
     } finally {
       setIsLoading(false);
+      console.log('🏁 Login Page: Loading durumu false yapıldı');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
-      
-      <div className="max-w-md w-full space-y-8 relative z-10">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-purple-800 to-pink-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="flex justify-center">
-            <div className="w-20 h-20 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-300">
-              <Package className="w-10 h-10 text-white" />
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <Package className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h2 className="mt-8 text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Mermer Makinesi
-          </h2>
-          <h3 className="text-2xl font-semibold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+          </h1>
+          <h2 className="text-lg text-purple-200 mb-6">
             Stok Sistemi
-          </h3>
-          <p className="mt-4 text-gray-300 text-lg">
+          </h2>
+          <p className="text-purple-100">
             Hesabınıza giriş yapın
           </p>
         </div>
 
         {/* Demo Credentials */}
-        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 shadow-2xl">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <div className="w-2 h-2 bg-gradient-to-r from-green-400 to-blue-500 rounded-full mr-3 animate-pulse"></div>
-            Demo Hesapları
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4">
+          <h3 className="text-lg font-semibold text-white mb-3 text-center">
+            Demo Hesap
           </h3>
-          <div className="text-sm text-gray-200 space-y-3">
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors">
-              <span className="font-medium text-purple-300">Admin:</span>
-              <span className="text-gray-300">admin@mermermakinesi.com</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors">
-              <span className="font-medium text-blue-300">Depo:</span>
-              <span className="text-gray-300">depo@mermermakinesi.com</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors">
-              <span className="font-medium text-green-300">Planlama:</span>
-              <span className="text-gray-300">planlama@mermermakinesi.com</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors">
-              <span className="font-medium text-yellow-300">Teknisyen:</span>
-              <span className="text-gray-300">teknisyen@mermermakinesi.com</span>
-            </div>
-            <div className="text-center pt-2 border-t border-white/10">
-              <span className="text-xs text-gray-400">Tüm hesaplar için şifre: </span>
-              <span className="text-xs font-mono text-white bg-white/10 px-2 py-1 rounded">password123</span>
-            </div>
+          <div className="text-center text-sm text-purple-100">
+            <p className="mb-1">Email: <span className="font-mono text-white">admin@test.com</span></p>
+            <p>Şifre: <span className="font-mono text-white">admin123</span></p>
           </div>
         </div>
 
         {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 shadow-2xl space-y-6">
+        <form onSubmit={handleSubmit}>
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 space-y-4">
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
@@ -124,7 +98,7 @@ const Login: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-white/20"
+                className="block w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-200 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                 placeholder="Email adresinizi girin"
               />
             </div>
@@ -143,13 +117,13 @@ const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full px-4 py-3 pr-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm transition-all duration-300 hover:bg-white/20"
+                  className="block w-full px-4 py-3 pr-12 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-200 focus:ring-2 focus:ring-purple-400 focus:border-transparent backdrop-blur-sm"
                   placeholder="Şifrenizi girin"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-300 hover:text-white transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-200 hover:text-white transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -162,15 +136,15 @@ const Login: React.FC = () => {
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div className="mt-6">
             <button
               type="submit"
               disabled={isLoading}
               className={cn(
-                "group relative w-full flex justify-center py-4 px-6 border border-transparent text-lg font-semibold rounded-2xl text-white transition-all duration-300 transform hover:scale-105 shadow-2xl",
+                "w-full flex justify-center items-center py-4 px-6 border border-transparent text-lg font-semibold rounded-2xl text-white transition-all duration-300",
                 isLoading
-                  ? "bg-gray-500/50 cursor-not-allowed backdrop-blur-sm"
-                  : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 focus:ring-4 focus:ring-purple-500/50 hover:shadow-purple-500/25"
+                  ? "bg-gray-500/50 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:ring-4 focus:ring-blue-500/50"
               )}
             >
               {isLoading ? (
@@ -181,22 +155,23 @@ const Login: React.FC = () => {
               ) : (
                 <span className="flex items-center space-x-2">
                   <span>Giriş Yap</span>
-                  <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
                 </span>
               )}
             </button>
           </div>
         </form>
 
-        {/* Footer */}
-        <div className="text-center pt-8">
-          <p className="text-sm text-gray-400">
-            © 2024 Mermer Makinesi Stok Sistemi
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Tüm hakları saklıdır.
+        {/* Register Link */}
+        <div className="text-center mt-6">
+          <p className="text-purple-200">
+            Hesabınız yok mu?{' '}
+            <Link
+              to="/register"
+              className="font-semibold text-white hover:text-purple-100 transition-colors duration-200 underline decoration-purple-300 hover:decoration-white"
+            >
+              Kayıt Ol
+            </Link>
           </p>
         </div>
       </div>

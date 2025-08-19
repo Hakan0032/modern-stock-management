@@ -34,7 +34,7 @@ const Profile: React.FC = () => {
         ...formData,
         updatedAt: new Date().toISOString()
       };
-      
+
       setUser(updatedUser);
       setIsEditing(false);
       toast.success('Profil başarıyla güncellendi');
@@ -266,9 +266,8 @@ const Profile: React.FC = () => {
                       Durum
                     </label>
                     <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        user?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${user?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
                         {user?.isActive ? 'Aktif' : 'Pasif'}
                       </span>
                     </div>

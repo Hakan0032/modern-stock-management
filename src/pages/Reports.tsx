@@ -7,10 +7,11 @@ import {
   TrendingUp,
   TrendingDown,
   Package,
-  Activity
+  Activity,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../utils/api';
-import { formatCurrency, formatDate, exportToCSV } from '../utils';
+import { formatDate, exportToCSV } from '../utils';
 import { toast } from 'sonner';
 
 interface ReportData {
@@ -38,6 +39,7 @@ interface ReportData {
 const Reports: React.FC = () => {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0]
@@ -51,11 +53,18 @@ const Reports: React.FC = () => {
   const fetchReportData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching report data with date range:', dateRange);
       const [stockRes, movementRes, workOrderRes] = await Promise.all([
         api.get('/dashboard/category-distribution'),
         api.get(`/dashboard/stock-trends?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`),
         api.get('/dashboard/work-order-stats')
       ]);
+
+      console.log('Stock response:', stockRes.data);
+      console.log('Movement response:', movementRes.data);
+      console.log('WorkOrder response:', workOrderRes.data);
 
       // Mock additional data for comprehensive reporting
       const mockReportData: ReportData = {
@@ -74,10 +83,16 @@ const Reports: React.FC = () => {
         workOrderReport: workOrderRes.data.data || workOrderRes.data
       };
 
+      console.log('Processed report data:', mockReportData);
       setReportData(mockReportData);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Reports fetch error:', error);
+      console.error('Error response:', error?.response?.data);
+      console.error('Error message:', error?.message);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Rapor verileri yüklenirken hata oluştu';
+      setError(errorMessage);
       toast.error('Hata', {
-        description: 'Rapor verileri yüklenirken hata oluştu'
+        description: errorMessage
       });
     } finally {
       setLoading(false);
@@ -95,7 +110,7 @@ const Reports: React.FC = () => {
         data = reportData.stockReport.categories.map(cat => ({
           'Kategori': cat.name,
           'Adet': cat.count,
-          'Toplam Değer': formatCurrency(cat.value)
+          
         }));
         filename = 'stok-raporu';
         break;
@@ -110,11 +125,11 @@ const Reports: React.FC = () => {
         break;
       case 'workorder':
         data = [
-          { 'Durum': 'Toplam', 'Adet': reportData.workOrderReport.total },
-          { 'Durum': 'Planlanan', 'Adet': reportData.workOrderReport.planned },
-          { 'Durum': 'Devam Eden', 'Adet': reportData.workOrderReport.inProgress },
-          { 'Durum': 'Tamamlanan', 'Adet': reportData.workOrderReport.completed },
-          { 'Durum': 'Tamamlanma Oranı', 'Adet': `${reportData.workOrderReport.completionRate.toFixed(1)}%` }
+          { 'Durum': 'Toplam', 'Adet': reportData?.workOrderReport?.total || 0 },
+          { 'Durum': 'Planlanan', 'Adet': reportData?.workOrderReport?.planned || 0 },
+          { 'Durum': 'Devam Eden', 'Adet': reportData?.workOrderReport?.inProgress || 0 },
+          { 'Durum': 'Tamamlanan', 'Adet': reportData?.workOrderReport?.completed || 0 },
+          { 'Durum': 'Tamamlanma Oranı', 'Adet': `${(reportData?.workOrderReport?.completionRate || 0).toFixed(1)}%` }
         ];
         filename = 'is-emri-raporu';
         break;
@@ -129,7 +144,28 @@ const Reports: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Rapor verileri yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Yükleme Hatası</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+          <button
+            onClick={fetchReportData}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Tekrar Dene
+          </button>
+        </div>
       </div>
     );
   }
@@ -139,8 +175,8 @@ const Reports: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Raporlar</h1>
-          <p className="text-gray-600">Detaylı analiz ve raporları görüntüleyin</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Raporlar</h1>
+          <p className="text-gray-600 dark:text-gray-300">Detaylı analiz ve raporları görüntüleyin</p>
         </div>
         <button
           onClick={exportReport}
@@ -152,13 +188,13 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Report Type */}
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="stock">Stok Raporu</option>
             <option value="movement">Hareket Raporu</option>
@@ -167,23 +203,23 @@ const Reports: React.FC = () => {
 
           {/* Start Date */}
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="date"
               value={dateRange.startDate}
               onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
 
           {/* End Date */}
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="date"
               value={dateRange.endDate}
               onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -194,12 +230,12 @@ const Reports: React.FC = () => {
         <div className="space-y-6">
           {/* Stock Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Toplam Stok Değeri</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(reportData.stockReport.totalValue)}
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Toplam Stok Değeri</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {reportData?.stockReport?.totalItems || 0}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -208,11 +244,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Toplam Malzeme</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.stockReport.totalItems}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Toplam Malzeme</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{reportData?.stockReport?.totalItems || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Package className="w-6 h-6 text-blue-600" />
@@ -220,11 +256,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Kritik Stok</p>
-                  <p className="text-2xl font-bold text-red-600">{reportData.stockReport.criticalItems}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Kritik Stok</p>
+                  <p className="text-2xl font-bold text-red-600">{reportData?.stockReport?.criticalItems || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                   <TrendingDown className="w-6 h-6 text-red-600" />
@@ -234,32 +270,29 @@ const Reports: React.FC = () => {
           </div>
 
           {/* Category Breakdown */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Kategori Bazında Dağılım</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Kategori Bazında Dağılım</h2>
             </div>
             <div className="p-6">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 text-sm font-medium text-gray-600">Kategori</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Adet</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Toplam Değer</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Oran</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Kategori</th>
+                      <th className="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Adet</th>
+                      <th className="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Oran</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {reportData.stockReport.categories.map((category, index) => {
-                      const percentage = (category.value / reportData.stockReport.totalValue * 100).toFixed(1);
+                    {(reportData?.stockReport?.categories || []).map((category, index) => {
+                      const totalCount = (reportData?.stockReport?.categories || []).reduce((sum, cat) => sum + (cat?.count || 0), 0);
+                      const percentage = ((category?.count || 0) / (totalCount || 1) * 100).toFixed(1);
                       return (
-                        <tr key={index} className="border-b border-gray-100">
-                          <td className="py-3 text-sm text-gray-900">{category.name}</td>
-                          <td className="py-3 text-sm text-gray-900 text-right">{category.count}</td>
-                          <td className="py-3 text-sm text-gray-900 text-right">
-                            {formatCurrency(category.value)}
-                          </td>
-                          <td className="py-3 text-sm text-gray-900 text-right">{percentage}%</td>
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="py-3 text-sm text-gray-900 dark:text-white">{category?.name || 'N/A'}</td>
+                          <td className="py-3 text-sm text-gray-900 dark:text-white text-right">{category?.count || 0}</td>
+                          <td className="py-3 text-sm text-gray-900 dark:text-white text-right">{percentage}%</td>
                         </tr>
                       );
                     })}
@@ -275,11 +308,11 @@ const Reports: React.FC = () => {
         <div className="space-y-6">
           {/* Movement Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Toplam Giriş</p>
-                  <p className="text-2xl font-bold text-green-600">{reportData.movementReport.totalIn}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Toplam Giriş</p>
+                  <p className="text-2xl font-bold text-green-600">{reportData?.movementReport?.totalIn || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-green-600" />
@@ -287,11 +320,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Toplam Çıkış</p>
-                  <p className="text-2xl font-bold text-red-600">{reportData.movementReport.totalOut}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Toplam Çıkış</p>
+                  <p className="text-2xl font-bold text-red-600">{reportData?.movementReport?.totalOut || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                   <TrendingDown className="w-6 h-6 text-red-600" />
@@ -299,14 +332,14 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Net Değişim</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Net Değişim</p>
                   <p className={`text-2xl font-bold ${
-                    reportData.movementReport.netChange >= 0 ? 'text-green-600' : 'text-red-600'
+                    (reportData?.movementReport?.netChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {reportData.movementReport.netChange >= 0 ? '+' : ''}{reportData.movementReport.netChange}
+                    {(reportData?.movementReport?.netChange || 0) >= 0 ? '+' : ''}{reportData?.movementReport?.netChange || 0}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -317,29 +350,29 @@ const Reports: React.FC = () => {
           </div>
 
           {/* Daily Movements */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Günlük Hareketler</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Günlük Hareketler</h2>
             </div>
             <div className="p-6">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 text-sm font-medium text-gray-600">Tarih</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Giriş</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Çıkış</th>
-                      <th className="text-right py-2 text-sm font-medium text-gray-600">Net</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Tarih</th>
+                      <th className="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Giriş</th>
+                      <th className="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Çıkış</th>
+                      <th className="text-right py-2 text-sm font-medium text-gray-600 dark:text-gray-300">Net</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {reportData.movementReport.dailyMovements.slice(-10).map((day, index) => {
-                      const net = day.in - day.out;
+                    {(reportData?.movementReport?.dailyMovements || []).slice(-10).map((day, index) => {
+                      const net = (day?.in || 0) - (day?.out || 0);
                       return (
-                        <tr key={index} className="border-b border-gray-100">
-                          <td className="py-3 text-sm text-gray-900">{formatDate(day.date)}</td>
-                          <td className="py-3 text-sm text-green-600 text-right font-medium">+{day.in}</td>
-                          <td className="py-3 text-sm text-red-600 text-right font-medium">-{day.out}</td>
+                        <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="py-3 text-sm text-gray-900 dark:text-white">{formatDate(day?.date)}</td>
+                          <td className="py-3 text-sm text-green-600 text-right font-medium">+{day?.in || 0}</td>
+                          <td className="py-3 text-sm text-red-600 text-right font-medium">-{day?.out || 0}</td>
                           <td className={`py-3 text-sm text-right font-medium ${
                             net >= 0 ? 'text-green-600' : 'text-red-600'
                           }`}>
@@ -360,11 +393,11 @@ const Reports: React.FC = () => {
         <div className="space-y-6">
           {/* Work Order Summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Toplam İş Emri</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.workOrderReport.total}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Toplam İş Emri</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{reportData?.workOrderReport?.total || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -372,11 +405,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Planlanan</p>
-                  <p className="text-2xl font-bold text-blue-600">{reportData.workOrderReport.planned}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Planlanan</p>
+                  <p className="text-2xl font-bold text-blue-600">{reportData?.workOrderReport?.planned || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-blue-600" />
@@ -384,11 +417,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Devam Eden</p>
-                  <p className="text-2xl font-bold text-orange-600">{reportData.workOrderReport.inProgress}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Devam Eden</p>
+                  <p className="text-2xl font-bold text-orange-600">{reportData?.workOrderReport?.inProgress || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                   <Activity className="w-6 h-6 text-orange-600" />
@@ -396,11 +429,11 @@ const Reports: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Tamamlanan</p>
-                  <p className="text-2xl font-bold text-green-600">{reportData.workOrderReport.completed}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Tamamlanan</p>
+                  <p className="text-2xl font-bold text-green-600">{reportData?.workOrderReport?.completed || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-6 h-6 text-green-600" />
@@ -410,46 +443,46 @@ const Reports: React.FC = () => {
           </div>
 
           {/* Completion Rate */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Tamamlanma Oranı</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tamamlanma Oranı</h2>
             </div>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-gray-600">Genel Tamamlanma Oranı</span>
-                <span className="text-lg font-semibold text-gray-900">
-                  {reportData.workOrderReport.completionRate.toFixed(1)}%
+                <span className="text-sm text-gray-600 dark:text-gray-300">Genel Tamamlanma Oranı</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {(reportData?.workOrderReport?.completionRate || 0).toFixed(1)}%
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-4">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4">
                 <div 
                   className="bg-green-600 h-4 rounded-full transition-all duration-300"
-                  style={{ width: `${reportData.workOrderReport.completionRate}%` }}
+                  style={{ width: `${reportData?.workOrderReport?.completionRate || 0}%` }}
                 ></div>
               </div>
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
-                  <p className="text-sm text-gray-600">Planlanan</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Planlanan</p>
                   <p className="text-lg font-semibold text-blue-600">
-                    {((reportData.workOrderReport.planned / reportData.workOrderReport.total) * 100).toFixed(1)}%
+                    {(((reportData?.workOrderReport?.planned || 0) / (reportData?.workOrderReport?.total || 1)) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Devam Eden</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Devam Eden</p>
                   <p className="text-lg font-semibold text-orange-600">
-                    {((reportData.workOrderReport.inProgress / reportData.workOrderReport.total) * 100).toFixed(1)}%
+                    {(((reportData?.workOrderReport?.inProgress || 0) / (reportData?.workOrderReport?.total || 1)) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Tamamlanan</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Tamamlanan</p>
                   <p className="text-lg font-semibold text-green-600">
-                    {((reportData.workOrderReport.completed / reportData.workOrderReport.total) * 100).toFixed(1)}%
+                    {(((reportData?.workOrderReport?.completed || 0) / (reportData?.workOrderReport?.total || 1)) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">İptal Edilen</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">İptal Edilen</p>
                   <p className="text-lg font-semibold text-red-600">
-                    {(((reportData.workOrderReport.total - reportData.workOrderReport.planned - reportData.workOrderReport.inProgress - reportData.workOrderReport.completed) / reportData.workOrderReport.total) * 100).toFixed(1)}%
+                    {((((reportData?.workOrderReport?.total || 0) - (reportData?.workOrderReport?.planned || 0) - (reportData?.workOrderReport?.inProgress || 0) - (reportData?.workOrderReport?.completed || 0)) / (reportData?.workOrderReport?.total || 1)) * 100).toFixed(1)}%
                   </p>
                 </div>
               </div>

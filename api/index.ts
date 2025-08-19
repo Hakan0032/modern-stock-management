@@ -130,12 +130,31 @@ const movements = [
   {
     id: '1',
     materialId: '1',
+    materialCode: 'MRM001',
     materialName: 'Mermer Blok A1',
-    type: 'in' as const,
+    type: 'IN' as const,
     quantity: 50,
     unit: 'ton',
+    totalPrice: 25000,
     reason: 'Satın Alma',
     description: 'Yeni sevkiyat',
+    location: 'Depo A',
+    date: new Date().toISOString(),
+    createdBy: 'admin',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '2',
+    materialId: '1',
+    materialCode: 'MRM001',
+    materialName: 'Mermer Blok A1',
+    type: 'OUT' as const,
+    quantity: 10,
+    unit: 'ton',
+    totalPrice: 5000,
+    reason: 'Satış',
+    description: 'Müşteri sevkiyatı',
+    location: 'Depo A',
     date: new Date().toISOString(),
     createdBy: 'admin',
     createdAt: new Date().toISOString()
@@ -373,35 +392,16 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
   }
 });
 
-app.get('/api/auth/me', authenticateToken, async (req: Request, res: Response): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: 'User not found'
-      } as ApiResponse);
-      return;
-    }
-
-    const { id, firstName, lastName, email, role, phone, isActive, createdAt, updatedAt } = req.user;
-    
-    res.json({
-      success: true,
-      data: { id, firstName, lastName, email, role, phone, isActive, createdAt, updatedAt },
-      message: 'User info retrieved successfully'
-    } as ApiResponse);
-  } catch (error) {
-    console.error('Get user info error:', error instanceof Error ? error.message : String(error));
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error'
-    } as ApiResponse);
-  }
-});
+// Auth endpoints moved to auth.ts routes
 
 // Materials routes
 app.get('/api/materials', (req: Request, res: Response) => {
-  res.json({ success: true, data: materials });
+  try {
+    res.json({ success: true, data: materials });
+  } catch (error) {
+    console.error('Materials fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 app.get('/api/materials/:id', (req: Request, res: Response) => {
@@ -442,22 +442,51 @@ app.delete('/api/materials/:id', (req: Request, res: Response) => {
 
 // Movements routes
 app.get('/api/movements', (req: Request, res: Response) => {
-  res.json({ success: true, data: movements });
+  try {
+    res.json({ success: true, data: movements });
+  } catch (error) {
+    console.error('Movements fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 app.post('/api/movements', (req: Request, res: Response) => {
   const newMovement = {
-    id: String(movements.length + 1),
+    id: Date.now().toString(),
     ...req.body,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
   movements.push(newMovement);
-  res.json({ success: true, data: newMovement });
+  res.status(201).json({ success: true, data: newMovement });
+});
+
+app.put('/api/movements/:id', (req: Request, res: Response) => {
+  const index = movements.findIndex(m => m.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Movement not found' });
+  }
+  movements[index] = { ...movements[index], ...req.body, updatedAt: new Date().toISOString() };
+  res.json({ success: true, data: movements[index] });
+});
+
+app.delete('/api/movements/:id', (req: Request, res: Response) => {
+  const index = movements.findIndex(m => m.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Movement not found' });
+  }
+  movements.splice(index, 1);
+  res.json({ success: true, message: 'Movement deleted' });
 });
 
 // Machines routes
 app.get('/api/machines', (req: Request, res: Response) => {
-  res.json({ success: true, data: machines });
+  try {
+    res.json({ success: true, data: machines });
+  } catch (error) {
+    console.error('Machines fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 app.get('/api/machines/:id', (req: Request, res: Response) => {
@@ -488,9 +517,23 @@ app.put('/api/machines/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: machines[index] });
 });
 
+app.delete('/api/machines/:id', (req: Request, res: Response) => {
+  const index = machines.findIndex(m => m.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Machine not found' });
+  }
+  machines.splice(index, 1);
+  res.json({ success: true, message: 'Machine deleted' });
+});
+
 // Work Orders routes
 app.get('/api/workorders', (req: Request, res: Response) => {
-  res.json({ success: true, data: workOrders });
+  try {
+    res.json({ success: true, data: workOrders });
+  } catch (error) {
+    console.error('Work orders fetch error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 app.get('/api/workorders/:id', (req: Request, res: Response) => {
@@ -522,37 +565,194 @@ app.put('/api/workorders/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: workOrders[index] });
 });
 
+app.delete('/api/workorders/:id', (req: Request, res: Response) => {
+  const index = workOrders.findIndex(w => w.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Work order not found' });
+  }
+  workOrders.splice(index, 1);
+  res.json({ success: true, message: 'Work order deleted' });
+});
+
+app.patch('/api/workorders/:id/start', (req: Request, res: Response) => {
+  const index = workOrders.findIndex(w => w.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Work order not found' });
+  }
+  if (workOrders[index].status !== 'PLANNED') {
+    return res.status(400).json({ success: false, error: 'Work order cannot be started' });
+  }
+  workOrders[index] = { ...workOrders[index], status: 'IN_PROGRESS', updatedAt: new Date().toISOString() };
+  res.json({ success: true, data: workOrders[index] });
+});
+
+app.patch('/api/workorders/:id/complete', (req: Request, res: Response) => {
+  const index = workOrders.findIndex(w => w.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Work order not found' });
+  }
+  if (workOrders[index].status !== 'IN_PROGRESS') {
+    return res.status(400).json({ success: false, error: 'Work order cannot be completed' });
+  }
+  workOrders[index] = { ...workOrders[index], status: 'COMPLETED', updatedAt: new Date().toISOString() };
+  res.json({ success: true, data: workOrders[index] });
+});
+
+app.patch('/api/workorders/:id/cancel', (req: Request, res: Response) => {
+  const index = workOrders.findIndex(w => w.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Work order not found' });
+  }
+  if (workOrders[index].status === 'COMPLETED') {
+    return res.status(400).json({ success: false, error: 'Completed work order cannot be cancelled' });
+  }
+  workOrders[index] = { ...workOrders[index], status: 'CANCELLED', updatedAt: new Date().toISOString() };
+  res.json({ success: true, data: workOrders[index] });
+});
+
 // Dashboard routes
 app.get('/api/dashboard/stats', (req: Request, res: Response) => {
-  const stats = {
-    totalMaterials: materials.length,
-    lowStockItems: materials.filter(m => m.currentStock <= m.minStock).length,
-    totalMachines: machines.length,
-    activeMachines: machines.filter(m => m.status === 'active').length,
-    pendingWorkOrders: workOrders.filter(w => w.status === 'PLANNED').length,
-    completedWorkOrders: workOrders.filter(w => w.status === 'COMPLETED').length
-  };
-  res.json({ success: true, data: stats });
+  try {
+    const stats = {
+      materials: {
+        total: materials.length,
+        lowStock: materials.filter(m => m.currentStock <= m.minStock).length,
+        outOfStock: materials.filter(m => m.currentStock === 0).length
+      },
+      machines: {
+        total: machines.length,
+        active: machines.filter(m => m.status === 'active').length,
+        maintenance: machines.filter(m => m.status === 'active').length, // Placeholder for maintenance
+        inactive: machines.filter(m => m.status === 'active').length // Placeholder for inactive
+      },
+      movements: {
+        monthlyInbound: movements.filter(m => m.type === 'IN' && new Date(m.createdAt).getMonth() === new Date().getMonth()).length,
+        monthlyOutbound: movements.filter(m => m.type === 'OUT' && new Date(m.createdAt).getMonth() === new Date().getMonth()).length,
+        monthlyNet: movements.filter(m => new Date(m.createdAt).getMonth() === new Date().getMonth()).reduce((sum, m) => sum + (m.type === 'IN' ? m.quantity : -m.quantity), 0),
+        totalMovements: movements.length
+      }
+    };
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
 });
 
 app.get('/api/dashboard/critical-stock', (req: Request, res: Response) => {
-  const criticalStock = materials.filter(m => m.currentStock <= m.minStock);
-  res.json({ success: true, data: criticalStock });
+  try {
+    const criticalMaterials = materials
+      .filter(material => material.currentStock <= material.minStock)
+      .map(material => {
+        const shortage = material.minStock - material.currentStock;
+        let severity: 'critical' | 'high' | 'medium' = 'medium';
+        
+        if (material.currentStock === 0) {
+          severity = 'critical';
+        } else if (shortage >= material.minStock * 0.5) {
+          severity = 'high';
+        }
+        
+        return {
+          id: material.id,
+          code: material.code,
+          name: material.name,
+          currentStock: material.currentStock,
+          minStockLevel: material.minStock,
+          unit: material.unit,
+          category: material.category,
+          location: material.location,
+          severity
+        };
+      });
+    
+    res.json(criticalMaterials);
+  } catch (error) {
+    console.error('Error fetching critical stock:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.get('/api/dashboard/recent-movements', (req: Request, res: Response) => {
-  const recentMovements = movements.slice(-10);
-  res.json({ success: true, data: recentMovements });
+  try {
+    const recentMovements = movements
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10)
+      .map(movement => ({
+        id: movement.id,
+        materialCode: movement.materialCode,
+        materialName: movement.materialName,
+        type: movement.type,
+        quantity: movement.quantity,
+        unit: movement.unit,
+        reason: movement.reason,
+        location: movement.location,
+        createdAt: movement.createdAt
+      }));
+    
+    res.json(recentMovements);
+  } catch (error) {
+    console.error('Error fetching recent movements:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.get('/api/dashboard/work-order-stats', (req: Request, res: Response) => {
-  const stats = {
-    pending: workOrders.filter(w => w.status === 'PLANNED').length,
-    inProgress: workOrders.filter(w => w.status === 'IN_PROGRESS').length,
-    completed: workOrders.filter(w => w.status === 'COMPLETED').length,
-    cancelled: workOrders.filter(w => w.status === 'CANCELLED').length
+  try {
+    const now = new Date();
+    const overdueWorkOrders = workOrders.filter(w => 
+      w.status !== 'COMPLETED' && 
+      w.status !== 'CANCELLED' && 
+      new Date(w.dueDate) < now
+    ).length;
+    
+    const stats = {
+      total: workOrders.length,
+      pending: workOrders.filter(w => w.status === 'PLANNED').length,
+      inProgress: workOrders.filter(w => w.status === 'IN_PROGRESS').length,
+      completed: workOrders.filter(w => w.status === 'COMPLETED').length,
+      overdue: overdueWorkOrders
+    };
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Work order stats error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+app.get('/api/dashboard/category-distribution', (req: Request, res: Response) => {
+  const categoryStats = {
+    'Mermer': materials.filter(m => m.category === 'Mermer').length,
+    'Granit': materials.filter(m => m.category === 'Granit').length,
+    'Traverten': materials.filter(m => m.category === 'Traverten').length,
+    'Oniks': materials.filter(m => m.category === 'Oniks').length,
+    'Diğer': materials.filter(m => !['Mermer', 'Granit', 'Traverten', 'Oniks'].includes(m.category)).length
   };
-  res.json({ success: true, data: stats });
+  
+  const chartData = Object.entries(categoryStats).map(([name, value]) => ({
+    name,
+    value,
+    percentage: Math.round((value / materials.length) * 100)
+  }));
+  
+  res.json({ success: true, data: chartData });
+});
+
+app.get('/api/dashboard/stock-trends', (req: Request, res: Response) => {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    return date.toISOString().split('T')[0];
+  });
+  
+  const trendData = last7Days.map((date, index) => ({
+    date,
+    inbound: Math.floor(Math.random() * 50) + 10,
+    outbound: Math.floor(Math.random() * 40) + 5,
+    total: materials.reduce((sum, m) => sum + m.currentStock, 0) + (index * 10)
+  }));
+  
+  res.json({ success: true, data: trendData });
 });
 
 // Admin routes
@@ -597,11 +797,84 @@ app.get('/api/reports/workorders', (req: Request, res: Response) => {
   res.json({ success: true, data: workOrders });
 });
 
-// Suppliers route
+// Movements routes
+app.get('/api/movements', (req: Request, res: Response) => {
+  try {
+    const { search, type, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    let filteredMovements = [...movements];
+    
+    // Apply filters
+    if (search) {
+      const searchTerm = search.toString().toLowerCase();
+      filteredMovements = filteredMovements.filter(m => 
+        m.materialName?.toLowerCase().includes(searchTerm) ||
+        m.materialCode?.toLowerCase().includes(searchTerm) ||
+        m.reason?.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    if (type) {
+      filteredMovements = filteredMovements.filter(m => m.type === type);
+    }
+    
+    if (dateFrom) {
+      filteredMovements = filteredMovements.filter(m => 
+        new Date(m.createdAt) >= new Date(dateFrom.toString())
+      );
+    }
+    
+    if (dateTo) {
+      filteredMovements = filteredMovements.filter(m => 
+        new Date(m.createdAt) <= new Date(dateTo.toString())
+      );
+    }
+    
+    // Sort by creation date (newest first)
+    filteredMovements.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    // Pagination
+    const pageNum = parseInt(page.toString());
+    const limitNum = parseInt(limit.toString());
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    const paginatedMovements = filteredMovements.slice(startIndex, endIndex);
+    
+    res.json({
+      success: true,
+      data: {
+        data: paginatedMovements,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: filteredMovements.length,
+          totalPages: Math.ceil(filteredMovements.length / limitNum)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Movements fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Hareketler yüklenirken hata oluştu'
+    });
+  }
+});
+
+// Suppliers routes
 app.get('/api/suppliers', (req: Request, res: Response) => {
   const suppliers = [
     { id: '1', name: 'Afyon Mermer A.Ş.', contact: 'info@afyonmermer.com' },
     { id: '2', name: 'Makine Parça Ltd.', contact: 'satis@makineparca.com' }
+  ];
+  res.json({ success: true, data: suppliers });
+});
+
+// Admin suppliers route (used by MaterialForm and MaterialEdit)
+app.get('/api/admin/suppliers', (req: Request, res: Response) => {
+  const suppliers = [
+    { id: '1', name: 'Afyon Mermer A.Ş.', contact: 'info@afyonmermer.com', email: 'info@afyonmermer.com', phone: '+90 272 123 4567', address: 'Afyon Merkez', status: 'active' },
+    { id: '2', name: 'Makine Parça Ltd.', contact: 'satis@makineparca.com', email: 'satis@makineparca.com', phone: '+90 212 987 6543', address: 'İstanbul Sanayi', status: 'active' },
+    { id: '3', name: 'Granit Dünyası', contact: 'info@granitdunyasi.com', email: 'info@granitdunyasi.com', phone: '+90 232 555 1234', address: 'İzmir Kemalpaşa', status: 'active' }
   ];
   res.json({ success: true, data: suppliers });
 });

@@ -1,20 +1,22 @@
 import express, { Request, Response } from 'express';
 import { authenticateToken, requireMaterialAccess } from '../middleware/auth';
-import { materials, getNextId } from '../data/mockData';
+import { dbAdmin } from '../lib/supabase';
 import type { Material } from '../../shared/types';
 
 const router = express.Router();
 
 // Get all materials with filtering
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const { search, category, stockLevel, page = 1, limit = 10 } = req.query;
-    let filteredMaterials = [...materials];
+    
+    // Get all materials from Supabase
+    let materials = await dbAdmin.materials.getAll();
 
     // Apply search filter
     if (search) {
       const searchLower = (search as string).toLowerCase();
-      filteredMaterials = filteredMaterials.filter(material => 
+      materials = materials.filter(material => 
         material.name.toLowerCase().includes(searchLower) ||
         material.code.toLowerCase().includes(searchLower) ||
         material.description?.toLowerCase().includes(searchLower)
@@ -23,20 +25,20 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 
     // Apply category filter
     if (category) {
-      filteredMaterials = filteredMaterials.filter(material => 
+      materials = materials.filter(material => 
         material.category === category
       );
     }
 
     // Apply stock level filter
     if (stockLevel && stockLevel !== 'all') {
-      filteredMaterials = filteredMaterials.filter(material => {
-        const stockRatio = material.currentStock / material.maxStockLevel;
+      materials = materials.filter(material => {
+        const stockRatio = Number(material.current_stock) / Number(material.max_stock_level);
         switch (stockLevel) {
           case 'critical':
-            return material.currentStock <= material.minStockLevel;
+            return Number(material.current_stock) <= Number(material.min_stock_level);
           case 'low':
-            return material.currentStock > material.minStockLevel && stockRatio < 0.3;
+            return Number(material.current_stock) > Number(material.min_stock_level) && stockRatio < 0.3;
           case 'normal':
             return stockRatio >= 0.3 && stockRatio < 0.8;
           case 'high':
@@ -47,22 +49,42 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
+    // Convert to frontend format
+    const formattedMaterials = materials.map(material => ({
+      id: material.id,
+      code: material.code,
+      name: material.name,
+      description: material.description,
+      category: material.category,
+      unit: material.unit,
+      currentStock: Number(material.current_stock),
+      minStockLevel: Number(material.min_stock_level),
+      maxStockLevel: Number(material.max_stock_level),
+      supplier: material.supplier,
+      location: material.location,
+      barcode: material.barcode,
+      imagePath: material.image_path,
+      createdAt: material.created_at,
+      updatedAt: material.updated_at
+    }));
+
     // Pagination
     const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
     const endIndex = startIndex + parseInt(limit as string);
-    const paginatedMaterials = filteredMaterials.slice(startIndex, endIndex);
+    const paginatedMaterials = formattedMaterials.slice(startIndex, endIndex);
 
     res.json({
       success: true,
       data: {
         data: paginatedMaterials,
-        total: filteredMaterials.length,
+        total: formattedMaterials.length,
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        totalPages: Math.ceil(filteredMaterials.length / parseInt(limit as string))
+        totalPages: Math.ceil(formattedMaterials.length / parseInt(limit as string))
       }
     });
   } catch (error) {
+    console.error('Materials fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'Malzemeler yüklenirken hata oluştu'
@@ -71,86 +93,108 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Get material by ID
-router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const material = materials.find(m => m.id === req.params.id);
+    const material = await dbAdmin.materials.getById(req.params.id);
     
-    if (!material) {
-      return res.status(404).json({
-        success: false,
-        error: 'Malzeme bulunamadı'
-      });
-    }
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: material.id,
+      code: material.code,
+      name: material.name,
+      description: material.description,
+      category: material.category,
+      unit: material.unit,
+      currentStock: Number(material.current_stock),
+      minStockLevel: Number(material.min_stock_level),
+      maxStockLevel: Number(material.max_stock_level),
+      supplier: material.supplier,
+      location: material.location,
+      barcode: material.barcode,
+      imagePath: material.image_path,
+      createdAt: material.created_at,
+      updatedAt: material.updated_at
+    };
 
     res.json({
       success: true,
-      data: material
+      data: formattedMaterial
     });
   } catch (error) {
-    res.status(500).json({
+    console.error('Material fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(404).json({
       success: false,
-      error: 'Malzeme yüklenirken hata oluştu'
+      error: 'Malzeme bulunamadı'
     });
   }
 });
 
 // Create new material
-router.post('/', authenticateToken, requireMaterialAccess, async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const {
-      code,
-      name,
-      description,
-      category,
-      unit,
-      unitPrice,
-      currentStock,
-      minStock,
-      maxStock,
-      location
-    } = req.body;
+    const { code, name, description, category, unit, quantity, minStockLevel, maxStockLevel, supplier, location, barcode } = req.body;
 
-    // Validation
-    if (!code || !name || !category || !unit || unitPrice === undefined || 
-        currentStock === undefined || minStock === undefined || maxStock === undefined) {
+    // Validate required fields
+    if (!code || !name || !category || !unit) {
       return res.status(400).json({
         success: false,
         error: 'Gerekli alanlar eksik'
       });
     }
 
-    // Check if code already exists
-    const existingMaterial = materials.find(m => m.code === code);
-    if (existingMaterial) {
+    // Check if material code already exists
+    try {
+      await dbAdmin.materials.getByCode(code);
       return res.status(400).json({
         success: false,
-        error: 'Bu kod ile malzeme zaten mevcut'
+        error: 'Bu malzeme kodu zaten kullanılıyor'
       });
+    } catch {
+      // Material doesn't exist, which is what we want
     }
 
-    const newMaterial: Material = {
-      id: getNextId(),
+    const materialData = {
       code,
       name,
-      description: description || '',
+      description,
       category,
       unit,
-      unitPrice: parseFloat(unitPrice),
-      currentStock: parseInt(currentStock),
-      minStockLevel: parseInt(minStock),
-      maxStockLevel: parseInt(maxStock),
-      location: location || 'Depo',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      current_stock: quantity ? parseFloat(quantity) : 0,
+      min_stock_level: minStockLevel ? parseFloat(minStockLevel) : 0,
+      max_stock_level: maxStockLevel ? parseFloat(maxStockLevel) : 0,
+      supplier,
+      location,
+      barcode
     };
 
-    materials.push(newMaterial);
+    const newMaterial = await dbAdmin.materials.create(materialData);
+
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: newMaterial.id,
+      code: newMaterial.code,
+      name: newMaterial.name,
+      description: newMaterial.description,
+      category: newMaterial.category,
+      unit: newMaterial.unit,
+
+      currentStock: Number(newMaterial.current_stock),
+      minStockLevel: Number(newMaterial.min_stock_level),
+      maxStockLevel: Number(newMaterial.max_stock_level),
+      supplier: newMaterial.supplier,
+      location: newMaterial.location,
+      barcode: newMaterial.barcode,
+      imagePath: newMaterial.image_path,
+      createdAt: newMaterial.created_at,
+      updatedAt: newMaterial.updated_at
+    };
 
     res.status(201).json({
       success: true,
-      data: newMaterial
+      data: formattedMaterial
     });
   } catch (error) {
+    console.error('Material creation error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'Malzeme oluşturulurken hata oluştu'
@@ -159,62 +203,67 @@ router.post('/', authenticateToken, requireMaterialAccess, async (req: Request, 
 });
 
 // Update material
-router.put('/:id', authenticateToken, requireMaterialAccess, async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const materialIndex = materials.findIndex(m => m.id === req.params.id);
-    
-    if (materialIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        error: 'Malzeme bulunamadı'
-      });
-    }
+    const { code, name, description, category, unit, quantity, minStockLevel, maxStockLevel, supplier, location, barcode } = req.body;
 
-    const {
-      code,
-      name,
-      description,
-      category,
-      unit,
-      unitPrice,
-      currentStock,
-      minStock,
-      maxStock,
-      location
-    } = req.body;
-
-    // Check if code already exists (excluding current material)
-    if (code && code !== materials[materialIndex].code) {
-      const existingMaterial = materials.find(m => m.code === code && m.id !== req.params.id);
-      if (existingMaterial) {
-        return res.status(400).json({
-          success: false,
-          error: 'Bu kod ile malzeme zaten mevcut'
-        });
+    // Check if new code conflicts with existing materials (excluding current one)
+    if (code) {
+      try {
+        const existingMaterial = await dbAdmin.materials.getByCode(code);
+        if (existingMaterial.id !== req.params.id) {
+          return res.status(400).json({
+            success: false,
+            error: 'Bu malzeme kodu zaten kullanılıyor'
+          });
+        }
+      } catch {
+        // Material doesn't exist, which is fine
       }
     }
 
-    // Update material
-    materials[materialIndex] = {
-      ...materials[materialIndex],
-      code: code || materials[materialIndex].code,
-      name: name || materials[materialIndex].name,
-      description: description !== undefined ? description : materials[materialIndex].description,
-      category: category || materials[materialIndex].category,
-      unit: unit || materials[materialIndex].unit,
-      unitPrice: unitPrice !== undefined ? parseFloat(unitPrice) : materials[materialIndex].unitPrice,
-      currentStock: currentStock !== undefined ? parseInt(currentStock) : materials[materialIndex].currentStock,
-      minStockLevel: minStock !== undefined ? parseInt(minStock) : materials[materialIndex].minStockLevel,
-      maxStockLevel: maxStock !== undefined ? parseInt(maxStock) : materials[materialIndex].maxStockLevel,
-      location: location || materials[materialIndex].location,
-      updatedAt: new Date().toISOString()
+    const updateData: any = {};
+    if (code) updateData.code = code;
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category) updateData.category = category;
+    if (unit) updateData.unit = unit;
+
+    if (quantity !== undefined) updateData.current_stock = parseFloat(quantity);
+    if (minStockLevel !== undefined) updateData.min_stock_level = parseFloat(minStockLevel);
+    if (maxStockLevel !== undefined) updateData.max_stock_level = parseFloat(maxStockLevel);
+    if (supplier !== undefined) updateData.supplier = supplier;
+    if (location !== undefined) updateData.location = location;
+    if (barcode !== undefined) updateData.barcode = barcode;
+
+    const updatedMaterial = await dbAdmin.materials.update(req.params.id, updateData);
+
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: updatedMaterial.id,
+      code: updatedMaterial.code,
+      name: updatedMaterial.name,
+      description: updatedMaterial.description,
+      category: updatedMaterial.category,
+      unit: updatedMaterial.unit,
+
+      currentStock: Number(updatedMaterial.current_stock),
+      minStockLevel: Number(updatedMaterial.min_stock_level),
+      maxStockLevel: Number(updatedMaterial.max_stock_level),
+      supplier: updatedMaterial.supplier,
+      location: updatedMaterial.location,
+      barcode: updatedMaterial.barcode,
+      imagePath: updatedMaterial.image_path,
+      createdAt: updatedMaterial.created_at,
+      updatedAt: updatedMaterial.updated_at
     };
 
     res.json({
       success: true,
-      data: materials[materialIndex]
+      data: formattedMaterial
     });
   } catch (error) {
+    console.error('Material update error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'Malzeme güncellenirken hata oluştu'
@@ -223,34 +272,27 @@ router.put('/:id', authenticateToken, requireMaterialAccess, async (req: Request
 });
 
 // Delete material
-router.delete('/:id', authenticateToken, requireMaterialAccess, async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const materialIndex = materials.findIndex(m => m.id === req.params.id);
-    
-    if (materialIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        error: 'Malzeme bulunamadı'
-      });
-    }
-
-    materials.splice(materialIndex, 1);
+    await dbAdmin.materials.delete(req.params.id);
 
     res.json({
       success: true,
       message: 'Malzeme başarıyla silindi'
     });
   } catch (error) {
-    res.status(500).json({
+    console.error('Material deletion error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(404).json({
       success: false,
-      error: 'Malzeme silinirken hata oluştu'
+      error: 'Malzeme bulunamadı'
     });
   }
 });
 
 // Get material categories
-router.get('/categories/list', authenticateToken, async (req: Request, res: Response) => {
+router.get('/categories/list', async (req: Request, res: Response) => {
   try {
+    const materials = await dbAdmin.materials.getAll();
     const categories = [...new Set(materials.map(m => m.category))];
     
     res.json({
@@ -258,6 +300,7 @@ router.get('/categories/list', authenticateToken, async (req: Request, res: Resp
       data: categories
     });
   } catch (error) {
+    console.error('Categories fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
     res.status(500).json({
       success: false,
       error: 'Kategoriler yüklenirken hata oluştu'
