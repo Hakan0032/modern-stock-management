@@ -77,7 +77,11 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onCatego
       }
     } catch (error: any) {
       console.error('Error saving category:', error);
-      const errorMessage = error.response?.data?.error || 'Kategori kaydedilirken hata oluştu';
+      const errorData = error.response?.data?.error;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
+                          'Kategori kaydedilirken hata oluştu';
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -103,7 +107,11 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, onCatego
       }
     } catch (error: any) {
       console.error('Error deleting category:', error);
-      const errorMessage = error.response?.data?.error || 'Kategori silinirken hata oluştu';
+      const errorData = error.response?.data?.error;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
+                          'Kategori silinirken hata oluştu';
       toast.error(errorMessage);
     }
   };

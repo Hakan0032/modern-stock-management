@@ -71,8 +71,14 @@ const MachineForm: React.FC = () => {
       
       navigate('/machines');
     } catch (error: any) {
+      console.error('Error creating machine:', error);
+      const errorData = error.response?.data?.error || error.response?.data?.message;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
+                          'Makine eklenirken hata oluştu';
       toast.error('Hata', {
-        description: error.response?.data?.message || 'Makine eklenirken hata oluştu'
+        description: errorMessage
       });
     } finally {
       setSaving(false);

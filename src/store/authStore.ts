@@ -79,7 +79,11 @@ export const useAuthStore = create<AuthStore>()(
           // Daha detaylı hata mesajı
           let errorMessage = 'Giriş yapılamadı';
           if (error.response?.data?.error) {
-            errorMessage = error.response.data.error;
+        const errorData = error.response.data.error;
+        errorMessage = typeof errorData === 'string' ? errorData : 
+                      typeof errorData === 'object' && errorData ? 
+                      (errorData.message || JSON.stringify(errorData)) : 
+                      'Giriş yapılamadı';
           } else if (error.message) {
             errorMessage = error.message;
           }

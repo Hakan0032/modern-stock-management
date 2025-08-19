@@ -150,7 +150,8 @@ const MaterialForm: React.FC = () => {
     } catch (error: any) {
       const errorData = error.response?.data?.error;
       const errorMessage = typeof errorData === 'string' ? errorData : 
-                          typeof errorData === 'object' ? JSON.stringify(errorData) : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
                           'İşlem sırasında hata oluştu';
       toast.error('Hata', {
         description: errorMessage

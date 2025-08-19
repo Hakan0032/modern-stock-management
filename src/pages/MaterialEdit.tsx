@@ -157,8 +157,14 @@ const MaterialEdit: React.FC = () => {
       
       navigate(`/materials/${id}`);
     } catch (error: any) {
+      console.error('Error updating material:', error);
+      const errorData = error.response?.data?.error || error.response?.data?.message;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
+                          'Malzeme güncellenirken hata oluştu';
       toast.error('Hata', {
-        description: error.response?.data?.message || 'Malzeme güncellenirken hata oluştu'
+        description: errorMessage
       });
     } finally {
       setSaving(false);

@@ -127,8 +127,14 @@ const MovementForm: React.FC = () => {
       
       navigate('/movements');
     } catch (error: any) {
+      console.error('Error creating movement:', error);
+      const errorData = error.response?.data?.error || error.response?.data?.message;
+      const errorMessage = typeof errorData === 'string' ? errorData : 
+                          typeof errorData === 'object' && errorData ? 
+                          (errorData.message || JSON.stringify(errorData)) : 
+                          'Hareket kaydedilirken hata oluştu';
       toast.error('Hata', {
-        description: error.response?.data?.message || 'Hareket kaydedilirken hata oluştu'
+        description: errorMessage
       });
     } finally {
       setSaving(false);
