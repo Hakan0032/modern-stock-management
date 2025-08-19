@@ -51,8 +51,8 @@ const users: User[] = [
     username: 'admin',
     firstName: 'Admin',
     lastName: 'User',
-    email: 'admin@example.com',
-    password: 'password123',
+    email: 'admin@test.com',
+    password: 'admin123',
     role: 'admin',
     department: 'IT',
     phone: '+90 555 123 4567',
@@ -66,8 +66,8 @@ const users: User[] = [
     username: 'manager',
     firstName: 'Manager',
     lastName: 'User',
-    email: 'manager@example.com',
-    password: 'password123',
+    email: 'manager@test.com',
+    password: 'manager123',
     role: 'manager',
     department: 'Production',
     phone: '+90 555 234 5678',
@@ -81,8 +81,8 @@ const users: User[] = [
     username: 'operator',
     firstName: 'Operator',
     lastName: 'User',
-    email: 'operator@example.com',
-    password: 'password123',
+    email: 'operator@test.com',
+    password: 'operator123',
     role: 'operator',
     department: 'Production',
     phone: '+90 555 345 6789',
@@ -346,7 +346,8 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const validPassword = password === 'password123';
+    // Check password against user's actual password
+    const validPassword = user.password === password;
     
     if (!validPassword) {
       res.status(401).json({
