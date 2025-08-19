@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
 import { Material, BOMItem } from '../types';
 import { toast } from 'sonner';
+import { api } from '../utils/api';
 
 interface BOMEditorProps {
   machineId: string;
@@ -26,13 +27,11 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
 
   const fetchMaterials = async () => {
     try {
-      const response = await fetch('/api/materials');
-      if (response.ok) {
-        const data = await response.json();
-        setMaterials(data);
-      }
+      const response = await api.get('/materials');
+      setMaterials(response.data.data || response.data || []);
     } catch (error) {
       console.error('Error fetching materials:', error instanceof Error ? error.message : String(error));
+      toast.error('Malzemeler yüklenirken hata oluştu');
     }
   };
 
@@ -74,23 +73,12 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
     };
 
     try {
-      const response = await fetch(`/api/machines/${machineId}/bom`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(item),
-      });
-
-      if (response.ok) {
-        const updatedItems = [...bomItems, item];
-        onUpdate(updatedItems);
-        setNewItem({ materialId: '', quantity: 1, notes: '' });
-        setIsAddingItem(false);
-        toast.success('Malzeme BOM listesine eklendi');
-      } else {
-        toast.error('Malzeme eklenirken hata oluştu');
-      }
+      const response = await api.post(`/machines/${machineId}/bom`, item);
+      const updatedItems = [...bomItems, item];
+      onUpdate(updatedItems);
+      setNewItem({ materialId: '', quantity: 1, notes: '' });
+      setIsAddingItem(false);
+      toast.success('Malzeme BOM listesine eklendi');
     } catch (error) {
       console.error('Error adding BOM item:', error instanceof Error ? error.message : String(error));
       toast.error('Malzeme eklenirken hata oluştu');
@@ -104,25 +92,14 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
     }
 
     try {
-      const response = await fetch(`/api/machines/${machineId}/bom/${itemId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editItem),
-      });
-
-      if (response.ok) {
-        const updatedItems = bomItems.map(item => 
-          item.id === itemId ? { ...item, ...editItem } : item
-        );
-        onUpdate(updatedItems);
-        setEditingItem(null);
-        setEditItem({});
-        toast.success('Malzeme güncellendi');
-      } else {
-        toast.error('Malzeme güncellenirken hata oluştu');
-      }
+      const response = await api.put(`/machines/${machineId}/bom/${itemId}`, editItem);
+      const updatedItems = bomItems.map(item => 
+        item.id === itemId ? { ...item, ...editItem } : item
+      );
+      onUpdate(updatedItems);
+      setEditingItem(null);
+      setEditItem({});
+      toast.success('Malzeme güncellendi');
     } catch (error) {
       console.error('Error updating BOM item:', error instanceof Error ? error.message : String(error));
       toast.error('Malzeme güncellenirken hata oluştu');
@@ -135,17 +112,10 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
     }
 
     try {
-      const response = await fetch(`/api/machines/${machineId}/bom/${itemId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        const updatedItems = bomItems.filter(item => item.id !== itemId);
-        onUpdate(updatedItems);
-        toast.success('Malzeme BOM listesinden kaldırıldı');
-      } else {
-        toast.error('Malzeme kaldırılırken hata oluştu');
-      }
+      const response = await api.delete(`/machines/${machineId}/bom/${itemId}`);
+      const updatedItems = bomItems.filter(item => item.id !== itemId);
+      onUpdate(updatedItems);
+      toast.success('Malzeme BOM listesinden kaldırıldı');
     } catch (error) {
       console.error('Error deleting BOM item:', error instanceof Error ? error.message : String(error));
       toast.error('Malzeme kaldırılırken hata oluştu');

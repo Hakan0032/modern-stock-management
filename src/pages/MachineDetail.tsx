@@ -18,6 +18,7 @@ import { api } from '../utils/api';
 import { formatDate, getStatusColor } from '../utils';
 import { toast } from 'sonner';
 import BOMEditor from '../components/BOMEditor';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const MachineDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -285,11 +286,13 @@ const MachineDetail: React.FC = () => {
           )}
 
           {activeTab === 'bom' && (
-            <BOMEditor
-              machineId={machine.id}
-              bomItems={bomItems}
-              onUpdate={setBomItems}
-            />
+            <ErrorBoundary>
+              <BOMEditor
+                machineId={machine.id}
+                bomItems={bomItems}
+                onUpdate={setBomItems}
+              />
+            </ErrorBoundary>
           )}
 
           {activeTab === 'maintenance' && (

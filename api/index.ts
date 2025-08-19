@@ -526,6 +526,89 @@ app.delete('/api/machines/:id', (req: Request, res: Response) => {
   res.json({ success: true, message: 'Machine deleted' });
 });
 
+// Machine BOM routes
+app.get('/api/machines/:id/bom', (req: Request, res: Response) => {
+  try {
+    const machine = machines.find(m => m.id === req.params.id);
+    if (!machine) {
+      return res.status(404).json({ success: false, error: 'Machine not found' });
+    }
+    // Return empty BOM for now - this will be populated from database in real implementation
+    res.json({ success: true, data: [] });
+  } catch (error) {
+    console.error('BOM fetch error:', error);
+    res.status(500).json({ success: false, error: 'BOM yüklenirken hata oluştu' });
+  }
+});
+
+app.post('/api/machines/:id/bom', (req: Request, res: Response) => {
+  try {
+    const machine = machines.find(m => m.id === req.params.id);
+    if (!machine) {
+      return res.status(404).json({ success: false, error: 'Machine not found' });
+    }
+    
+    const { materialId, materialName, materialCode, quantity, unit, notes } = req.body;
+    
+    if (!materialId || !materialName || !materialCode || !quantity || !unit) {
+      return res.status(400).json({ success: false, error: 'Gerekli alanlar eksik' });
+    }
+    
+    const newBOMItem = {
+      id: `bom_${Date.now()}`,
+      machineId: req.params.id,
+      materialId,
+      materialName,
+      materialCode,
+      quantity: parseFloat(quantity),
+      unit,
+      notes
+    };
+    
+    res.status(201).json({ success: true, data: newBOMItem });
+  } catch (error) {
+    console.error('BOM item creation error:', error);
+    res.status(500).json({ success: false, error: 'BOM öğesi eklenirken hata oluştu' });
+  }
+});
+
+app.put('/api/machines/:id/bom/:bomId', (req: Request, res: Response) => {
+  try {
+    const machine = machines.find(m => m.id === req.params.id);
+    if (!machine) {
+      return res.status(404).json({ success: false, error: 'Machine not found' });
+    }
+    
+    const { quantity, notes } = req.body;
+    
+    const updatedBOMItem = {
+      id: req.params.bomId,
+      machineId: req.params.id,
+      quantity: quantity ? parseFloat(quantity) : undefined,
+      notes
+    };
+    
+    res.json({ success: true, data: updatedBOMItem });
+  } catch (error) {
+    console.error('BOM item update error:', error);
+    res.status(500).json({ success: false, error: 'BOM öğesi güncellenirken hata oluştu' });
+  }
+});
+
+app.delete('/api/machines/:id/bom/:bomId', (req: Request, res: Response) => {
+  try {
+    const machine = machines.find(m => m.id === req.params.id);
+    if (!machine) {
+      return res.status(404).json({ success: false, error: 'Machine not found' });
+    }
+    
+    res.json({ success: true, message: 'BOM öğesi başarıyla silindi' });
+  } catch (error) {
+    console.error('BOM item deletion error:', error);
+    res.status(500).json({ success: false, error: 'BOM öğesi silinirken hata oluştu' });
+  }
+});
+
 // Work Orders routes
 app.get('/api/workorders', (req: Request, res: Response) => {
   try {
