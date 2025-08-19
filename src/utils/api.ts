@@ -12,8 +12,8 @@ const getApiBaseUrl = (): string => {
       // Development environment - use full URL to backend server
       return 'http://localhost:3001/api';
     } else {
-      // Production environment (Vercel)
-      return '/api';
+      // Production environment (Vercel) - use absolute path
+      return window.location.origin + '/api';
     }
   }
   // Server-side rendering or Node.js environment
