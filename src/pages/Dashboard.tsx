@@ -14,6 +14,8 @@ import { DashboardStats, CriticalStockAlert, RecentMovement } from '../types';
 import { formatDate, formatRelativeTime, getStockLevelColor } from '../utils';
 import { toast } from 'sonner';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { safeText, safeNumber, safeArray, validateForReactRender } from '../utils/safeRender';
+import { extractSafeMaterials, extractSafeMovements, isApiResponse } from '../utils/typeGuards';
 
 interface StockTrend {
   date: string;
@@ -63,94 +65,59 @@ const DashboardContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Basit mock data ile dashboard'u doldur
+  const fetchDashboardData = async () => {
     setLoading(true);
+    setError(null);
     
-    // Simulate loading
-    setTimeout(() => {
-      const mockStats: DashboardStats = {
-        materials: {
-          total: 150,
-          lowStock: 12,
-          outOfStock: 3
-        },
-        workOrders: {
-          total: 45,
-          pending: 8,
-          inProgress: 12,
-          completed: 23,
-          overdue: 2
-        },
-        machines: {
-          total: 25,
-          active: 20,
-          maintenance: 3,
-          inactive: 2
-        },
-        movements: {
-          monthlyInbound: 1250,
-          monthlyOutbound: 980,
-          monthlyNet: 270,
-          totalMovements: 2230
-        }
-      };
+    try {
+      // Fetch all dashboard data in parallel
+      const [statsResponse, materialsResponse, movementsResponse] = await Promise.all([
+        api.get('/dashboard/stats'),
+        api.get('/materials'),
+        api.get('/movements')
+      ]);
       
-      const mockCriticalStock: CriticalStockAlert[] = [
-        {
-          id: '1',
-          code: 'MAT001',
-          name: 'Çelik Plaka 10mm',
-          currentStock: 5,
-          minStockLevel: 20,
-          unit: 'adet',
-          category: 'Metal',
-          location: 'Depo A',
-          severity: 'critical' as const
-        },
-        {
-          id: '2',
-          code: 'MAT002',
-          name: 'Alüminyum Profil',
-          currentStock: 8,
-          minStockLevel: 15,
-          unit: 'metre',
-          category: 'Metal',
-          location: 'Depo B',
-          severity: 'high' as const
-        }
-      ];
+      // Process stats with type safety
+      if (isApiResponse(statsResponse.data) && statsResponse.data.success) {
+        setStats(statsResponse.data.data);
+      }
       
-      const mockRecentMovements: RecentMovement[] = [
-        {
-          id: '550e8400-e29b-41d4-a716-446655440051',
-          materialCode: 'MAT001',
-          materialName: 'Çelik Plaka 10mm',
-          type: 'IN' as const,
-          quantity: 50,
-          unit: 'adet',
-          reason: 'Satın alma',
-          location: 'Depo A',
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: '550e8400-e29b-41d4-a716-446655440052',
-          materialCode: 'MAT002',
-          materialName: 'Alüminyum Profil',
-          type: 'OUT' as const,
-          quantity: 25,
-          unit: 'metre',
-          reason: 'Üretim',
-          location: 'Depo B',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        }
-      ];
+      // Process materials for critical stock with type safety
+      const safeMaterials = extractSafeMaterials(materialsResponse.data);
+      const critical = safeMaterials
+        .filter(material => 
+          safeNumber(material.currentStock) <= safeNumber(material.minStockLevel)
+        )
+        .map(material => ({
+          ...material,
+          severity: safeNumber(material.currentStock) === 0 ? 'critical' as const :
+                   safeNumber(material.currentStock) <= safeNumber(material.minStockLevel) * 0.5 ? 'critical' as const :
+                   'high' as const,
+          location: material.location || 'Bilinmeyen'
+        }));
+      setCriticalStock(critical);
       
-      setCriticalStock(mockCriticalStock);
-      setRecentMovements(mockRecentMovements);
-      setStats(mockStats);
+      // Process recent movements with type safety
+      const safeMovements = extractSafeMovements(movementsResponse.data);
+      const recent = safeMovements
+        .sort((a: any, b: any) => {
+          const dateA = new Date(safeText(a?.createdAt)).getTime();
+          const dateB = new Date(safeText(b?.createdAt)).getTime();
+          return dateB - dateA;
+        })
+        .slice(0, 5);
+      setRecentMovements(recent);
+      
+    } catch (error) {
+      console.error('Dashboard data fetch error:', error);
+      setError(error instanceof Error ? error.message : 'Dashboard verileri yüklenirken hata oluştu');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
 
   if (loading) {
@@ -210,7 +177,7 @@ const DashboardContent: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Toplam Malzeme</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{Number(stats?.materials?.total) || 0}</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{safeNumber(stats?.materials?.total)}</p>
               </div>
               <div className="w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Package className="w-7 h-7 text-white" />
@@ -222,7 +189,7 @@ const DashboardContent: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Kritik Stok</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">{Number(stats?.materials?.lowStock) || 0}</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">{safeNumber(stats?.materials?.lowStock)}</p>
               </div>
               <div className="w-14 h-14 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <AlertTriangle className="w-7 h-7 text-white" />
@@ -234,7 +201,7 @@ const DashboardContent: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600 mb-1">Aktif İş Emirleri</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent">{Number(stats?.workOrders?.total) || 0}</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.total)}</p>
               </div>
               <div className="w-14 h-14 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Activity className="w-7 h-7 text-white" />
@@ -264,17 +231,17 @@ const DashboardContent: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {(Array.isArray(criticalStock) ? criticalStock : [])
-                  .filter(item => item && typeof item === 'object' && item.id)
+                {safeArray(criticalStock)
+                  .filter((item: any) => item && typeof item === 'object' && item.id)
                   .slice(0, 5)
-                  .map((item) => {
+                  .map((item: any) => {
                     const safeItem = {
-                      id: String(item.id || ''),
-                      name: String(item.name || 'Bilinmeyen Malzeme'),
-                      code: String(item.code || 'N/A'),
-                      currentStock: Number(item.currentStock) || 0,
-                      minStockLevel: Number(item.minStockLevel) || 0,
-                      unit: String(item.unit || 'adet')
+                      id: safeText(item?.id) || 'item-unknown',
+                      name: safeText(item?.name) || 'Unknown Material',
+                      code: safeText(item?.code) || 'N/A',
+                      currentStock: safeNumber(item?.currentStock),
+                      minStockLevel: safeNumber(item?.minStockLevel),
+                      unit: safeText(item?.unit) || 'unit'
                     };
                     
                     return (
@@ -283,15 +250,15 @@ const DashboardContent: React.FC = () => {
                           <div className="flex items-center space-x-3">
                             <div className={`w-3 h-3 rounded-full ${getStockLevelColor(safeItem.currentStock, safeItem.minStockLevel)} shadow-sm`}></div>
                             <div>
-                              <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">{safeItem.name}</p>
-                              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{safeItem.code}</p>
+                              <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-red-700 dark:group-hover:text-red-400 transition-colors">{safeText(safeItem.name)}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{safeText(safeItem.code)}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-bold text-red-600">
-                              {safeItem.currentStock} {safeItem.unit}
+                              {safeNumber(safeItem.currentStock)} {safeText(safeItem.unit)}
                             </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Min: {safeItem.minStockLevel}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Min: {safeNumber(safeItem.minStockLevel)}</p>
                           </div>
                         </div>
                       </div>
@@ -327,17 +294,17 @@ const DashboardContent: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {(Array.isArray(recentMovements) ? recentMovements : [])
-                  .filter(movement => movement && typeof movement === 'object' && movement.id)
+                {safeArray(recentMovements)
+                  .filter((movement: any) => movement && typeof movement === 'object' && movement.id)
                   .slice(0, 5)
-                  .map((movement) => {
+                  .map((movement: any) => {
                     const safeMovement = {
-                      id: String(movement.id || ''),
-                      materialName: String(movement.materialName || 'Bilinmeyen Malzeme'),
-                      materialCode: String(movement.materialCode || 'N/A'),
-                      type: String(movement.type || 'OUT'),
-                      quantity: Number(movement.quantity) || 0,
-                      createdAt: movement.createdAt || new Date().toISOString()
+                      id: safeText(movement?.id) || 'movement-unknown',
+                      materialName: safeText(movement?.materialName) || 'Unknown Material',
+                      materialCode: safeText(movement?.materialCode) || 'N/A',
+                      type: safeText(movement?.type) || 'OUT',
+                      quantity: safeNumber(movement?.quantity),
+                      createdAt: safeText(movement?.createdAt) || new Date().toISOString()
                     };
                     
                     return (
@@ -348,18 +315,18 @@ const DashboardContent: React.FC = () => {
                               safeMovement.type === 'IN' ? 'bg-green-500' : 'bg-red-500'
                             }`}></div>
                             <div>
-                              <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{safeMovement.materialName}</p>
-                              <p className="text-sm text-slate-600 dark:text-slate-400">{safeMovement.materialCode}</p>
+                              <p className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">{safeText(safeMovement.materialName)}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">{safeText(safeMovement.materialCode)}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className={`text-sm font-bold ${
                               safeMovement.type === 'IN' ? 'text-green-600' : 'text-red-600'
                             }`}>
-                              {safeMovement.type === 'IN' ? '+' : '-'}{safeMovement.quantity}
+                              {safeMovement.type === 'IN' ? '+' : '-'}{safeNumber(safeMovement.quantity)}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {formatRelativeTime(safeMovement.createdAt)}
+                              {formatRelativeTime(safeText(safeMovement.createdAt))}
                             </p>
                           </div>
                         </div>
@@ -387,31 +354,31 @@ const DashboardContent: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center group">
                 <div className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 p-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                  <p className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-200 dark:to-slate-400 bg-clip-text text-transparent">{stats?.workOrders?.total ?? 0}</p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 dark:from-slate-200 dark:to-slate-400 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.total)}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Toplam</p>
                 </div>
               </div>
               <div className="text-center group">
                 <div className="bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 p-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                  <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{Number(stats?.workOrders?.pending) || 0}</p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.pending)}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Planlanan</p>
                 </div>
               </div>
               <div className="text-center group">
                 <div className="bg-gradient-to-r from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 p-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                  <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent">{Number(stats?.workOrders?.inProgress) || 0}</p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.inProgress)}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Devam Eden</p>
                 </div>
               </div>
               <div className="text-center group">
                 <div className="bg-gradient-to-r from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 p-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                  <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">{Number(stats?.workOrders?.completed) || 0}</p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.completed)}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Tamamlanan</p>
                 </div>
               </div>
               <div className="text-center group">
                 <div className="bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 p-4 rounded-xl hover:shadow-lg transition-all duration-300">
-                  <p className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">{Number(stats?.workOrders?.overdue) || 0}</p>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">{safeNumber(stats?.workOrders?.overdue)}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Geciken</p>
                 </div>
               </div>

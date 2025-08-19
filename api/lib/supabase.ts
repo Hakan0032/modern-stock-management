@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../shared/database.types'
 
-const supabaseUrl = 'https://tbqxkrgvzdkkxegixwjn.supabase.co'
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRicXhrcmd2emRra3hlZ2l4d2puIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDA3OTIyNSwiZXhwIjoyMDY5NjU1MjI1fQ.Q8icCQdEzNoCq3DgyoG_AR1eup1Y0fZBbme5Zm9LWsw'
+const supabaseUrl = process.env.SUPABASE_URL || 'https://kyetyztrcvxhgqbynfpc.supabase.co'
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5ZXR5enRyY3Z4aGdxYnluZnBjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTU4NDU1MSwiZXhwIjoyMDcxMTYwNTUxfQ.R4tlgp1GwFggfq_ZNZPXlvb3-Q47pgn--gMEc9iCVuA'
 
 // Backend uses service role key for full access
 export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {

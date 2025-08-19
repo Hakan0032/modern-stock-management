@@ -5,6 +5,7 @@ import { Material } from '../types';
 import { api } from '../utils/api';
 import { toast } from 'sonner';
 import { cn } from '../utils';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface MaterialFormData {
   code: string;
@@ -54,9 +55,18 @@ const MaterialForm: React.FC = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await api.get('/admin/suppliers');
-      setSuppliers(response.data.data || response.data);
+      const suppliersData = response.data.data || response.data;
+      
+      // Ensure suppliers is always an array
+      if (Array.isArray(suppliersData)) {
+        setSuppliers(suppliersData);
+      } else {
+        console.error('❌ Suppliers API response is not an array:', suppliersData);
+        setSuppliers([]);
+      }
     } catch (error) {
       console.error('Tedarikçiler yüklenirken hata:', error instanceof Error ? error.message : String(error));
+      setSuppliers([]); // Ensure suppliers is always an array on error
     }
   };
 
@@ -375,20 +385,22 @@ const MaterialForm: React.FC = () => {
               <label htmlFor="supplierId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Ana Tedarikçi
               </label>
-              <select
-                id="supplierId"
-                name="supplierId"
-                value={formData.supplierId || ''}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="">Tedarikçi seçin</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+              <ErrorBoundary fallback={<div className="text-red-500 text-sm">Tedarikçi listesi yüklenemedi</div>}>
+                <select
+                  id="supplierId"
+                  name="supplierId"
+                  value={formData.supplierId || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Tedarikçi seçin</option>
+                  {(Array.isArray(suppliers) ? suppliers : []).map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </ErrorBoundary>
             </div>
           </div>
 

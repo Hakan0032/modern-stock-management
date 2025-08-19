@@ -28,60 +28,176 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
   const fetchMaterials = async () => {
     try {
       const response = await api.get('/materials');
-      setMaterials(response.data.data || response.data || []);
+      
+      // Comprehensive response validation
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid API response structure');
+      }
+      
+      // Extract materials data with multiple fallback paths
+      let materialsData = [];
+      if (response.data && typeof response.data === 'object') {
+        if (response.data.success && response.data.data) {
+          materialsData = response.data.data.data || response.data.data || [];
+        } else {
+          materialsData = response.data.data || response.data || [];
+        }
+      }
+      
+      // Ensure materialsData is an array and validate each item
+      if (Array.isArray(materialsData)) {
+        const validMaterials = materialsData.filter(material => 
+          material && 
+          typeof material === 'object' && 
+          material.id && 
+          typeof material.id === 'string' &&
+          material.code && 
+          typeof material.code === 'string' &&
+          material.name && 
+          typeof material.name === 'string'
+        );
+        setMaterials(validMaterials);
+      } else {
+        console.warn('Materials data is not an array:', materialsData);
+        setMaterials([]);
+      }
     } catch (error) {
       console.error('Error fetching materials:', error instanceof Error ? error.message : String(error));
+      setMaterials([]); // Set empty array on error
       toast.error('Malzemeler yüklenirken hata oluştu');
     }
   };
 
   const handleMaterialSelect = (materialId: string, isEdit = false) => {
-    const material = materials.find(m => m.id === materialId);
-    if (material) {
+    // Comprehensive input validation
+    if (!materialId || typeof materialId !== 'string' || materialId.trim() === '') {
+      console.warn('Invalid material ID provided:', materialId);
+      return;
+    }
+    
+    // Ensure materials array is valid
+    if (!Array.isArray(materials) || materials.length === 0) {
+      console.warn('Materials array is not available or empty');
+      toast.error('Malzeme listesi yüklenemedi');
+      return;
+    }
+    
+    const material = materials.find(m => 
+      m && 
+      typeof m === 'object' && 
+      m.id === materialId
+    );
+    
+    // Comprehensive material validation
+    if (material && 
+        material.id && 
+        typeof material.id === 'string' &&
+        material.code && 
+        typeof material.code === 'string' &&
+        material.name && 
+        typeof material.name === 'string') {
+      
       const itemData = {
         materialId: material.id,
         materialCode: material.code,
         materialName: material.name,
-        unit: material.unit,
-
+        unit: (material.unit && typeof material.unit === 'string') ? material.unit : 'Adet'
       };
       
-      if (isEdit) {
-        setEditItem(prev => ({ ...prev, ...itemData }));
-      } else {
-        setNewItem(prev => ({ ...prev, ...itemData }));
+      try {
+        if (isEdit) {
+          setEditItem(prev => ({ ...prev, ...itemData }));
+        } else {
+          setNewItem(prev => ({ ...prev, ...itemData }));
+        }
+      } catch (error) {
+        console.error('Error updating item data:', error);
+        toast.error('Malzeme seçimi sırasında hata oluştu');
       }
+    } else {
+      console.warn('Invalid or incomplete material selected:', material);
+      toast.error('Seçilen malzeme geçersiz');
     }
   };
 
   const handleAddItem = async () => {
-    if (!newItem.materialId || !newItem.quantity || newItem.quantity <= 0) {
-      toast.error('Lütfen malzeme seçin ve geçerli bir miktar girin');
+    // Comprehensive input validation
+    if (!machineId || typeof machineId !== 'string' || machineId.trim() === '') {
+      console.error('Invalid machine ID:', machineId);
+      toast.error('Geçersiz makine ID');
+      return;
+    }
+    
+    // Validate newItem object
+    if (!newItem || typeof newItem !== 'object') {
+      console.error('Invalid newItem object:', newItem);
+      toast.error('Geçersiz malzeme bilgileri');
+      return;
+    }
+    
+    // Validate required fields
+    if (!newItem.materialId || typeof newItem.materialId !== 'string' || newItem.materialId.trim() === '') {
+      toast.error('Lütfen bir malzeme seçin');
+      return;
+    }
+    
+    if (!newItem.quantity || typeof newItem.quantity !== 'number' || newItem.quantity <= 0 || !isFinite(newItem.quantity)) {
+      toast.error('Lütfen geçerli bir miktar girin');
       return;
     }
 
-    const item: BOMItem = {
-      id: `bom_${Date.now()}`,
-      machineId: machineId,
-      materialId: newItem.materialId!,
-      materialCode: newItem.materialCode!,
-      materialName: newItem.materialName!,
-      quantity: newItem.quantity!,
-      unit: newItem.unit!,
+    if (!newItem.materialCode || typeof newItem.materialCode !== 'string' || newItem.materialCode.trim() === '') {
+      toast.error('Malzeme kodu eksik');
+      return;
+    }
+    
+    if (!newItem.materialName || typeof newItem.materialName !== 'string' || newItem.materialName.trim() === '') {
+      toast.error('Malzeme adı eksik');
+      return;
+    }
 
-      notes: newItem.notes
+    // Create validated item object
+    const item: BOMItem = {
+      id: `bom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      machineId: machineId.trim(),
+      materialId: newItem.materialId.trim(),
+      materialCode: newItem.materialCode.trim(),
+      materialName: newItem.materialName.trim(),
+      quantity: newItem.quantity,
+      unit: (newItem.unit && typeof newItem.unit === 'string') ? newItem.unit.trim() : 'Adet',
+      notes: (newItem.notes && typeof newItem.notes === 'string') ? newItem.notes.trim() : ''
     };
 
     try {
       const response = await api.post(`/machines/${machineId}/bom`, item);
-      const updatedItems = [...bomItems, item];
-      onUpdate(updatedItems);
+      
+      // Validate API response
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid API response');
+      }
+      
+      // Safely update the items array with validation
+      const currentItems = Array.isArray(bomItems) ? bomItems.filter(item => 
+        item && typeof item === 'object' && item.id
+      ) : [];
+      
+      const updatedItems = [...currentItems, item];
+      
+      // Validate onUpdate function
+      if (typeof onUpdate === 'function') {
+        onUpdate(updatedItems);
+      } else {
+        console.error('onUpdate is not a function:', onUpdate);
+        throw new Error('Update function is not available');
+      }
+      
+      // Reset form state
       setNewItem({ materialId: '', quantity: 1, notes: '' });
       setIsAddingItem(false);
       toast.success('Malzeme BOM listesine eklendi');
     } catch (error) {
       console.error('Error adding BOM item:', error instanceof Error ? error.message : String(error));
-      toast.error('Malzeme eklenirken hata oluştu');
+      toast.error('Malzeme eklenirken hata oluştu: ' + (error instanceof Error ? error.message : 'Bilinmeyen hata'));
     }
   };
 
@@ -91,11 +207,20 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
       return;
     }
 
+    if (!itemId) {
+      toast.error('Geçersiz öğe ID');
+      return;
+    }
+
     try {
       const response = await api.put(`/machines/${machineId}/bom/${itemId}`, editItem);
-      const updatedItems = bomItems.map(item => 
-        item.id === itemId ? { ...item, ...editItem } : item
-      );
+      
+      // Safely update the items array
+      const currentItems = Array.isArray(bomItems) ? bomItems : [];
+      const updatedItems = currentItems.map(item => 
+        item?.id === itemId ? { ...item, ...editItem } : item
+      ).filter(Boolean); // Remove any null/undefined items
+      
       onUpdate(updatedItems);
       setEditingItem(null);
       setEditItem({});
@@ -107,13 +232,22 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
   };
 
   const handleDeleteItem = async (itemId: string) => {
+    if (!itemId) {
+      toast.error('Geçersiz öğe ID');
+      return;
+    }
+    
     if (!confirm('Bu malzemeyi BOM listesinden kaldırmak istediğinizden emin misiniz?')) {
       return;
     }
 
     try {
       const response = await api.delete(`/machines/${machineId}/bom/${itemId}`);
-      const updatedItems = bomItems.filter(item => item.id !== itemId);
+      
+      // Safely update the items array
+      const currentItems = Array.isArray(bomItems) ? bomItems : [];
+      const updatedItems = currentItems.filter(item => item?.id !== itemId);
+      
       onUpdate(updatedItems);
       toast.success('Malzeme BOM listesinden kaldırıldı');
     } catch (error) {
@@ -167,7 +301,13 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Malzeme seçin</option>
-                {materials.map(material => (
+                {Array.isArray(materials) && materials.filter(material => 
+                  material && 
+                  typeof material === 'object' && 
+                  material.id && 
+                  material.code && 
+                  material.name
+                ).map(material => (
                   <option key={material.id} value={material.id}>
                     {material.code} - {material.name}
                   </option>
@@ -245,7 +385,13 @@ const BOMEditor: React.FC<BOMEditorProps> = ({ machineId, bomItems, onUpdate }) 
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {bomItems.map((item) => (
+              {Array.isArray(bomItems) && bomItems.filter(item => 
+                item && 
+                typeof item === 'object' && 
+                item.id && 
+                item.materialName && 
+                item.materialCode
+              ).map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div>

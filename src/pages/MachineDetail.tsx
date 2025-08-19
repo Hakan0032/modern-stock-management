@@ -37,11 +37,46 @@ const MachineDetail: React.FC = () => {
 
   const fetchMachine = async () => {
     try {
+      // Validate machine ID
+      if (!id || typeof id !== 'string' || id.trim() === '') {
+        throw new Error('Geçersiz makine ID');
+      }
+      
       const response = await api.get(`/machines/${id}`);
-      setMachine(response.data.data || response.data);
+      
+      // Comprehensive response validation
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid API response structure');
+      }
+      
+      if (!response.data || typeof response.data !== 'object') {
+        throw new Error('Invalid response data structure');
+      }
+      
+      // Extract machine data with fallback paths
+      const machineData = response.data.data || response.data;
+      
+      // Comprehensive machine data validation
+      if (machineData && 
+          typeof machineData === 'object' && 
+          machineData.id && 
+          typeof machineData.id === 'string') {
+        setMachine(machineData);
+      } else {
+        console.error('Invalid machine data received:', machineData);
+        throw new Error('Makine verisi geçersiz format');
+      }
     } catch (error) {
+      console.error('Error fetching machine:', error);
+      
+      // Extract error message safely
+      let errorMessage = 'Makine bilgileri yüklenirken hata oluştu';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast.error('Hata', {
-        description: 'Makine bilgileri yüklenirken hata oluştu'
+        description: errorMessage
       });
       navigate('/machines');
     }
@@ -49,10 +84,52 @@ const MachineDetail: React.FC = () => {
 
   const fetchBOM = async () => {
     try {
+      // Validate machine ID
+      if (!id || typeof id !== 'string' || id.trim() === '') {
+        throw new Error('Geçersiz makine ID');
+      }
+      
       const response = await api.get(`/machines/${id}/bom`);
-      setBomItems(response.data.data || response.data || []);
+      
+      // Comprehensive response validation
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid API response structure');
+      }
+      
+      // Extract BOM data with fallback paths
+      let bomData = [];
+      if (response.data && typeof response.data === 'object') {
+        bomData = response.data.data || response.data || [];
+      }
+      
+      // Ensure bomData is an array and validate each item
+      if (Array.isArray(bomData)) {
+        const validBomItems = bomData.filter(item => {
+          const isValid = item && 
+            typeof item === 'object' && 
+            item.id && 
+            typeof item.id === 'string' &&
+            item.materialId && 
+            typeof item.materialId === 'string' &&
+            item.materialName && 
+            typeof item.materialName === 'string' &&
+            typeof item.quantity === 'number';
+          
+          if (!isValid) {
+            console.warn('Invalid BOM item filtered out:', item);
+          }
+          
+          return isValid;
+        });
+        
+        setBomItems(validBomItems);
+      } else {
+        console.warn('BOM data is not an array:', bomData);
+        setBomItems([]);
+      }
     } catch (error) {
       console.error('Error fetching BOM:', error instanceof Error ? error.message : String(error));
+      setBomItems([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -77,15 +154,25 @@ const MachineDetail: React.FC = () => {
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    if (!machine?.id) {
+      console.error('Machine ID is missing');
+      return;
+    }
+    
     try {
       await api.put(`/machines/${machine.id}`, {
-        ...machine
+        ...machine,
+        status: newStatus
       });
-      // Status güncelleme simülasyonu
+      
+      // Update local state
+      setMachine(prev => prev ? { ...prev, status: newStatus as any } : null);
+      
       toast.success('Başarılı', {
         description: 'Makine durumu güncellendi'
       });
     } catch (error) {
+      console.error('Error updating machine status:', error);
       toast.error('Hata', {
         description: 'Makine durumu güncellenirken hata oluştu'
       });
@@ -143,8 +230,12 @@ const MachineDetail: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{machine.model}</h1>
-            <p className="text-gray-600">ID: {machine.id}</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {machine && typeof machine === 'object' && machine.model ? machine.model : 'Bilinmeyen Model'}
+            </h1>
+            <p className="text-gray-600">
+              ID: {machine && typeof machine === 'object' && machine.id ? machine.id : 'N/A'}
+            </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -237,15 +328,21 @@ const MachineDetail: React.FC = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Makine ID</label>
-                    <p className="text-sm text-gray-900">{machine.id}</p>
+                    <p className="text-sm text-gray-900">
+                      {machine && typeof machine === 'object' && machine.id ? machine.id : 'N/A'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <p className="text-sm text-gray-900">{machine.model}</p>
+                    <p className="text-sm text-gray-900">
+                      {machine && typeof machine === 'object' && machine.model ? machine.model : 'Belirtilmemiş'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Oluşturma Tarihi</label>
-                    <p className="text-sm text-gray-900">{formatDate(machine.createdAt)}</p>
+                    <p className="text-sm text-gray-900">
+                      {machine && typeof machine === 'object' && machine.createdAt ? formatDate(machine.createdAt) : 'Belirtilmemiş'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
@@ -264,7 +361,9 @@ const MachineDetail: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <p className="text-sm text-gray-900">{machine.model}</p>
+                    <p className="text-sm text-gray-900">
+                      {machine && typeof machine === 'object' && machine.model ? machine.model : 'Belirtilmemiş'}
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Seri No</label>
@@ -273,7 +372,7 @@ const MachineDetail: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Güncelleme Tarihi</label>
                     <p className="text-sm text-gray-900">
-                      {formatDate(machine.createdAt)}
+                      {machine && typeof machine === 'object' && machine.createdAt ? formatDate(machine.createdAt) : 'Belirtilmemiş'}
                     </p>
                   </div>
                 </div>
@@ -288,8 +387,8 @@ const MachineDetail: React.FC = () => {
           {activeTab === 'bom' && (
             <ErrorBoundary>
               <BOMEditor
-                machineId={machine.id}
-                bomItems={bomItems}
+                machineId={machine && typeof machine === 'object' && machine.id ? machine.id : ''}
+                bomItems={Array.isArray(bomItems) ? bomItems : []}
                 onUpdate={setBomItems}
               />
             </ErrorBoundary>

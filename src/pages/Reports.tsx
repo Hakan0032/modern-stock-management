@@ -13,6 +13,7 @@ import {
 import { api } from '../utils/api';
 import { formatDate, exportToCSV } from '../utils';
 import { toast } from 'sonner';
+import { safeArray, safeNumber } from '../utils/safeRender';
 
 interface ReportData {
   stockReport: {
@@ -66,21 +67,44 @@ const Reports: React.FC = () => {
       console.log('Movement response:', movementRes.data);
       console.log('WorkOrder response:', workOrderRes.data);
 
-      // Mock additional data for comprehensive reporting
+      // Safely extract and validate API response data
+      const stockData = safeArray(stockRes.data.data || stockRes.data);
+      const movementData = safeArray(movementRes.data.data || movementRes.data);
+      const workOrderData = workOrderRes.data.data || workOrderRes.data || {};
+
+      console.log('Safe stock data:', stockData);
+      console.log('Safe movement data:', movementData);
+      console.log('Safe work order data:', workOrderData);
+
+      // Mock additional data for comprehensive reporting with safe array operations
       const mockReportData: ReportData = {
         stockReport: {
-          totalValue: (stockRes.data.data || stockRes.data).reduce((sum: number, cat: any) => sum + cat.totalValue, 0),
-          totalItems: (stockRes.data.data || stockRes.data).reduce((sum: number, cat: any) => sum + cat.count, 0),
+          totalValue: stockData.reduce((sum: number, cat: any) => sum + safeNumber(cat?.totalValue, 0), 0) as number,
+          totalItems: stockData.reduce((sum: number, cat: any) => sum + safeNumber(cat?.count, 0), 0) as number,
           criticalItems: Math.floor(Math.random() * 10) + 5,
-          categories: stockRes.data.data || stockRes.data
+          categories: stockData.map((cat: any) => ({
+            name: cat?.name || 'Unknown',
+            count: safeNumber(cat?.count, 0),
+            value: safeNumber(cat?.value || cat?.totalValue, 0)
+          }))
         },
         movementReport: {
-          totalIn: (movementRes.data.data || movementRes.data).reduce((sum: number, day: any) => sum + day.stockIn, 0),
-          totalOut: (movementRes.data.data || movementRes.data).reduce((sum: number, day: any) => sum + day.stockOut, 0),
-          netChange: (movementRes.data.data || movementRes.data).reduce((sum: number, day: any) => sum + (day.stockIn - day.stockOut), 0),
-          dailyMovements: movementRes.data.data || movementRes.data
+          totalIn: movementData.reduce((sum: number, day: any) => sum + safeNumber(day?.stockIn, 0), 0) as number,
+          totalOut: movementData.reduce((sum: number, day: any) => sum + safeNumber(day?.stockOut, 0), 0) as number,
+          netChange: movementData.reduce((sum: number, day: any) => sum + (safeNumber(day?.stockIn, 0) - safeNumber(day?.stockOut, 0)), 0) as number,
+          dailyMovements: movementData.map((day: any) => ({
+            date: day?.date || new Date().toISOString(),
+            in: safeNumber(day?.in || day?.stockIn, 0),
+            out: safeNumber(day?.out || day?.stockOut, 0)
+          }))
         },
-        workOrderReport: workOrderRes.data.data || workOrderRes.data
+        workOrderReport: {
+          total: safeNumber(workOrderData?.total, 0),
+          planned: safeNumber(workOrderData?.planned, 0),
+          inProgress: safeNumber(workOrderData?.inProgress, 0),
+          completed: safeNumber(workOrderData?.completed, 0),
+          completionRate: safeNumber(workOrderData?.completionRate, 0)
+        }
       };
 
       console.log('Processed report data:', mockReportData);
@@ -110,7 +134,7 @@ const Reports: React.FC = () => {
         data = reportData.stockReport.categories.map(cat => ({
           'Kategori': cat.name,
           'Adet': cat.count,
-          
+          'Değer': cat.value || 0
         }));
         filename = 'stok-raporu';
         break;

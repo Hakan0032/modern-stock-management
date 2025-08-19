@@ -2,11 +2,12 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { authenticateToken, requireAdminAccess } from '../middleware/auth';
 import { User, CreateUserRequest, UpdateUserRequest, UserRole, PaginatedResponse, UserStats, SystemSettings, SystemLog } from '../../shared/types';
+import suppliersRoutes from './suppliers.ts';
 
 const router = express.Router();
 
 // Import users data and helper function from mockData
-import { users, suppliers, getNextId } from '../data/mockData';
+import { users, getNextId } from '../data/mockData';
 
 // Get all users with filtering and pagination
 router.get('/users', authenticateToken, requireAdminAccess, async (req: Request, res: Response) => {
@@ -572,19 +573,7 @@ router.get('/logs', authenticateToken, requireAdminAccess, async (req: Request, 
   }
 });
 
-// Get all suppliers
-router.get('/suppliers', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    res.json({
-      success: true,
-      data: suppliers
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: 'Tedarikçiler yüklenirken hata oluştu'
-    });
-  }
-});
+// Mount suppliers routes under admin namespace
+router.use('/suppliers', suppliersRoutes);
 
 export default router;

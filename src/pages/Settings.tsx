@@ -26,8 +26,10 @@ interface SettingsData {
 
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
-  const { theme: currentTheme, toggleTheme, isDark } = useTheme();
-  const { language: currentLanguage, changeLanguage, t } = useLanguage();
+  const themeHook = useTheme();
+  const { theme: currentTheme = 'light', toggleTheme, isDark = false, setTheme } = themeHook || {};
+  const languageHook = useLanguage();
+  const { language: currentLanguage = 'tr', changeLanguage, t } = languageHook || {};
   const { status: dbStatus, isChecking: isCheckingDb, checkStatus: checkDbStatus } = useDatabaseStatus();
   const [settings, setSettings] = useState<SettingsData>({
     notifications: {
@@ -84,14 +86,16 @@ const Settings: React.FC = () => {
   useEffect(() => {
     loadSettings();
     // Sync current theme and language with settings
-    setSettings(prev => ({
-      ...prev,
-      appearance: {
-        ...prev.appearance,
-        theme: currentTheme,
-        language: currentLanguage
-      }
-    }));
+    if (currentTheme && currentLanguage) {
+      setSettings(prev => ({
+        ...prev,
+        appearance: {
+          ...prev.appearance,
+          theme: currentTheme,
+          language: currentLanguage
+        }
+      }));
+    }
   }, [currentTheme, currentLanguage]);
 
   // Değişiklikleri kontrol etme
@@ -199,17 +203,9 @@ const Settings: React.FC = () => {
 
     // Apply theme immediately if theme is changed
     if (section === 'appearance' && key === 'theme') {
-      // Use the useTheme hook's toggleTheme function for proper integration
-      if (value === 'dark' && currentTheme === 'light') {
-        toggleTheme();
-      } else if (value === 'light' && currentTheme === 'dark') {
-        toggleTheme();
-      } else if (value === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const root = document.documentElement;
-        root.classList.remove('light', 'dark');
-        root.classList.add(prefersDark ? 'dark' : 'light');
-        localStorage.setItem('theme', 'system');
+      // Use the setTheme function from useTheme hook for proper integration
+      if (setTheme && ['light', 'dark', 'system'].includes(value)) {
+        setTheme(value as 'light' | 'dark' | 'system');
       }
       
       // Show immediate feedback
@@ -218,9 +214,12 @@ const Settings: React.FC = () => {
     
     // Dil değişikliklerini uygula
     if (section === 'appearance' && key === 'language') {
-      changeLanguage(value as 'tr' | 'en');
+      if (changeLanguage && ['tr', 'en'].includes(value)) {
+        changeLanguage(value as 'tr' | 'en');
+      }
       // Show immediate feedback
-      toast.success(`${t('language')} ${value === 'tr' ? 'Türkçe' : 'English'} olarak değiştirildi`);
+      const languageText = t ? t('language') : 'Dil';
+      toast.success(`${languageText} ${value === 'tr' ? 'Türkçe' : 'English'} olarak değiştirildi`);
     }
   };
 

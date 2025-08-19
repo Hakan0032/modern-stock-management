@@ -16,6 +16,8 @@ import { MaterialMovement } from '../types';
 import { formatDate, formatRelativeTime } from '../utils';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
+import { extractSafeMovements, isMaterialMovementArray } from '../utils/typeGuards';
+import { safeText, safeNumber, safeArray } from '../utils/safeRender';
 
 const Movements: React.FC = () => {
   const [movements, setMovements] = useState<MaterialMovement[]>([]);
@@ -33,14 +35,18 @@ const Movements: React.FC = () => {
     try {
       const response = await api.get('/movements');
       
-      if (response.data.success) {
-        setMovements(response.data.data.data || []);
-      } else {
-        throw new Error(response.data.error || 'Hareketler yüklenirken hata oluştu');
+      // Use type-safe extraction
+      const safeMovements = extractSafeMovements(response.data);
+      
+      if (safeMovements.length === 0 && response.data.success) {
+        console.warn('No valid movements found in response');
       }
+      
+      setMovements(safeMovements);
     } catch (error) {
       console.error('Movements fetch error:', error);
       setError(error instanceof Error ? error.message : 'Hareketler yüklenirken hata oluştu');
+      setMovements([]);
     } finally {
       setLoading(false);
     }
@@ -50,25 +56,28 @@ const Movements: React.FC = () => {
     fetchMovements();
   }, []);
 
-  // Filter movements locally after fetching
-  const filteredMovements = movements.filter(movement => {
+  // Filter movements locally after fetching with safe data access
+  const filteredMovements = safeArray(movements).filter((movement: any) => {
     let matches = true;
     
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       matches = matches && (
-        movement.materialCode?.toLowerCase().includes(searchLower) ||
-        movement.materialName?.toLowerCase().includes(searchLower) ||
-        movement.reason?.toLowerCase().includes(searchLower)
+        safeText(movement?.materialCode).toLowerCase().includes(searchLower) ||
+        safeText(movement?.materialName).toLowerCase().includes(searchLower) ||
+        safeText(movement?.reason).toLowerCase().includes(searchLower)
       );
     }
     
     if (typeFilter) {
-      matches = matches && movement.type === typeFilter;
+      matches = matches && safeText(movement?.type) === typeFilter;
     }
     
     if (dateFilter) {
-      matches = matches && new Date(movement.createdAt).toDateString() === new Date(dateFilter).toDateString();
+      const movementDate = safeText(movement?.createdAt);
+      if (movementDate) {
+        matches = matches && new Date(movementDate).toDateString() === new Date(dateFilter).toDateString();
+      }
     }
     
     return matches;
@@ -182,9 +191,9 @@ const Movements: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Bugünkü Girişler</p>
               <p className="text-2xl font-bold text-green-600">
-                {filteredMovements.filter(m => 
-                  m.type === 'IN' && 
-                  new Date(m.createdAt).toDateString() === new Date().toDateString()
+                {filteredMovements.filter((m: any) => 
+                  safeText(m?.type) === 'IN' && 
+                  new Date(safeText(m?.createdAt)).toDateString() === new Date().toDateString()
                 ).length}
               </p>
             </div>
@@ -199,9 +208,9 @@ const Movements: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Bugünkü Çıkışlar</p>
               <p className="text-2xl font-bold text-red-600">
-                {filteredMovements.filter(m => 
-                  m.type === 'OUT' && 
-                  new Date(m.createdAt).toDateString() === new Date().toDateString()
+                {filteredMovements.filter((m: any) => 
+                  safeText(m?.type) === 'OUT' && 
+                  new Date(safeText(m?.createdAt)).toDateString() === new Date().toDateString()
                 ).length}
               </p>
             </div>
@@ -236,7 +245,7 @@ const Movements: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400">Henüz hareket bulunmuyor</p>
             </div>
           ) : (
-            filteredMovements.map((movement) => (
+            filteredMovements.map((movement: any) => (
               <div key={movement.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
@@ -252,24 +261,24 @@ const Movements: React.FC = () => {
                     <div>
                       <div className="flex items-center space-x-2">
                         <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                          Malzeme #{movement.materialId}
+                          Malzeme #{safeText(movement?.materialId)}
                         </h3>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          movement.type === 'IN' 
+                          safeText(movement?.type) === 'IN' 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {movement.type === 'IN' ? 'Giriş' : 'Çıkış'}
+                          {safeText(movement?.type) === 'IN' ? 'Giriş' : 'Çıkış'}
                         </span>
                       </div>
                       <div className="flex items-center space-x-4 mt-1">
                         <div className="flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400">
                           <User className="w-4 h-4" />
-                          <span>{movement.performedBy}</span>
+                          <span>{safeText(movement?.performedBy)}</span>
                         </div>
                         <div className="flex items-center space-x-1 text-sm text-gray-500 dark:text-gray-400">
                           <Calendar className="w-4 h-4" />
-                          <span>{formatDate(movement.createdAt)}</span>
+                          <span>{formatDate(safeText(movement?.createdAt))}</span>
                         </div>
                       </div>
                     </div>
@@ -277,12 +286,12 @@ const Movements: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <div className="text-right">
                       <div className={`text-lg font-semibold ${
-                        movement.type === 'IN' ? 'text-green-600' : 'text-red-600'
+                        safeText(movement?.type) === 'IN' ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
+                        {safeText(movement?.type) === 'IN' ? '+' : '-'}{safeNumber(movement?.quantity)}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {formatRelativeTime(movement.createdAt)}
+                        {formatRelativeTime(safeText(movement?.createdAt))}
                       </div>
                     </div>
                     <div className="flex space-x-2">
@@ -295,7 +304,7 @@ const Movements: React.FC = () => {
                         </svg>
                       </button>
                       <button
-                        onClick={() => handleDelete(movement.id)}
+                        onClick={() => handleDelete(safeText(movement?.id))}
                         className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                         title="Sil"
                       >
@@ -306,10 +315,10 @@ const Movements: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                {movement.reason && (
+                {safeText(movement?.reason) && (
                   <div className="mt-2 ml-14">
                     <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                      {movement.reason}
+                      {safeText(movement?.reason)}
                     </p>
                   </div>
                 )}

@@ -26,7 +26,7 @@ export default defineConfig({
   ],
   build: {
     sourcemap: true,
-    minify: 'terser',
+    minify: false, // Disabled to debug React error #31
     rollupOptions: {
       output: {
         manualChunks: undefined,

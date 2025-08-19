@@ -5,6 +5,9 @@ import { toast } from 'sonner';
 import CategoryModal from '../components/CategoryModal';
 import { api } from '../utils/api';
 import type { Material } from '../types';
+import { safeText, safeNumber, safeProp, validateForReactRender } from '../utils/safeRender';
+import { extractSafeMaterials, isMaterialArray } from '../utils/typeGuards';
+import { errorLogger, safeRender } from '../utils/errorHandler';
 
 const Materials: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -16,34 +19,39 @@ const Materials: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState(['Elektrik', 'Panel', 'Mekanik', 'Diğer']);
 
-  // Fetch materials from API
+  // Fetch materials from API with comprehensive error handling
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
         setLoading(true);
         setError(null);
         console.log('🔍 Fetching materials from API...');
-        const response = await api.get('/materials');
-        console.log('📦 API Response:', response.data);
         
-        if (response.data.success) {
-          // The API returns data in response.data.data.data structure
-          const materialsData = response.data.data?.data || response.data.data || [];
-          console.log('📋 Materials data:', materialsData);
-          
-          // Ensure materialsData is an array
-          if (Array.isArray(materialsData)) {
-            setMaterials(materialsData);
-          } else {
-            console.error('❌ Materials data is not an array:', materialsData);
-            setMaterials([]);
-          }
-        } else {
-          setError(response.data.error || 'Malzemeler yüklenirken hata oluştu');
+        const response = await api.get('/materials');
+        console.log('📦 API Response:', response);
+        
+        // Use type-safe extraction
+        const safeMaterials = extractSafeMaterials(response.data);
+        
+        if (safeMaterials.length === 0 && response.data.success) {
+          console.warn('No valid materials found in response');
         }
+        
+        setMaterials(safeMaterials);
       } catch (err: any) {
         console.error('❌ Materials fetch error:', err);
-        setError(err.response?.data?.error || 'Malzemeler yüklenirken hata oluştu');
+        
+        // Extract error message safely
+        let errorMessage = 'Malzemeler yüklenirken hata oluştu';
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        } else if (err?.response?.data?.error) {
+          errorMessage = err.response.data.error;
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+        
+        setError(errorMessage);
         // Ensure materials is always an array even on error
         setMaterials([]);
       } finally {
@@ -270,34 +278,41 @@ const Materials: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredMaterials.map((material) => (
-                  <tr key={material.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                filteredMaterials.map((material) => {
+                  // Runtime validation to prevent object rendering
+                  if (!material || typeof material !== 'object') {
+                    errorLogger.logObjectRenderError(material, 'Materials.tsx - material mapping');
+                    return null;
+                  }
+                  
+                  return (
+                  <tr key={safeRender(material.id, `material-${Date.now()}`)} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {material.name}
+                          {safeRender(material?.name, 'Unnamed Material')}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {material.code}
+                          {safeRender(material?.code, 'No Code')}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {material.category}
+                        {safeRender(material?.category, 'Uncategorized')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        {material.currentStock <= material.minStockLevel && (
+                        {safeNumber(material?.currentStock, 0) <= safeNumber(material?.minStockLevel, 0) && (
                           <AlertTriangle className="w-4 h-4 text-red-500" />
                         )}
                         <div>
-                          <div className={`text-sm font-medium ${getStockLevelColor(material.currentStock, material.minStockLevel)}`}>
-                            {material.currentStock} {material.unit}
+                          <div className={`text-sm font-medium ${getStockLevelColor(safeNumber(material?.currentStock, 0), safeNumber(material?.minStockLevel, 0))}`}>
+                            {safeRender(material?.currentStock, '0')} {safeRender(material?.unit, 'units')}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Min: {material.minStockLevel} {material.unit}
+                            Min: {safeRender(material?.minStockLevel, '0')} {safeRender(material?.unit, 'units')}
                           </div>
                         </div>
                       </div>
@@ -306,21 +321,21 @@ const Materials: React.FC = () => {
                     <td className="px-6 py-4 text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
                         <Link
-                          to={`/materials/${material.id}`}
+                          to={`/materials/${safeRender(material.id, 'unknown')}`}
                           className="text-blue-600 hover:text-blue-900 hover:bg-blue-50 p-1 rounded cursor-pointer transition-colors"
                           title="Görüntüle"
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
                         <Link
-                          to={`/materials/${material.id}/edit`}
+                          to={`/materials/${safeRender(material.id, 'unknown')}/edit`}
                           className="text-green-600 hover:text-green-900 hover:bg-green-50 p-1 rounded cursor-pointer transition-colors"
                           title="Düzenle"
                         >
                           <Edit className="w-4 h-4" />
                         </Link>
                         <button
-                          onClick={() => handleDelete(material.id)}
+                          onClick={() => handleDelete(safeRender(material.id, ''))}
                           className="text-red-600 hover:text-red-900 hover:bg-red-50 p-1 rounded cursor-pointer transition-colors"
                           title="Sil"
                         >
@@ -329,7 +344,8 @@ const Materials: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

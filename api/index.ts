@@ -396,49 +396,295 @@ app.post('/api/auth/login', async (req: Request, res: Response): Promise<void> =
 // Auth endpoints moved to auth.ts routes
 
 // Materials routes
-app.get('/api/materials', (req: Request, res: Response) => {
+app.get('/api/materials', async (req: Request, res: Response) => {
   try {
-    res.json({ success: true, data: materials });
+    const { search, category, stockLevel, page = 1, limit = 10 } = req.query;
+    
+    // Import Supabase connection
+    const { dbAdmin } = await import('./lib/supabase.ts');
+    
+    // Get all materials from Supabase
+    let materials = await dbAdmin.materials.getAll();
+
+    // Apply search filter
+    if (search) {
+      const searchLower = (search as string).toLowerCase();
+      materials = materials.filter(material => 
+        material.name.toLowerCase().includes(searchLower) ||
+        material.code.toLowerCase().includes(searchLower) ||
+        material.description?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply category filter
+    if (category) {
+      materials = materials.filter(material => 
+        material.category === category
+      );
+    }
+
+    // Apply stock level filter
+    if (stockLevel && stockLevel !== 'all') {
+      materials = materials.filter(material => {
+        const stockRatio = Number(material.current_stock) / Number(material.max_stock_level);
+        switch (stockLevel) {
+          case 'critical':
+            return Number(material.current_stock) <= Number(material.min_stock_level);
+          case 'low':
+            return Number(material.current_stock) > Number(material.min_stock_level) && stockRatio < 0.3;
+          case 'normal':
+            return stockRatio >= 0.3 && stockRatio < 0.8;
+          case 'high':
+            return stockRatio >= 0.8;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Convert to frontend format
+    const formattedMaterials = materials.map(material => ({
+      id: material.id,
+      code: material.code,
+      name: material.name,
+      description: material.description,
+      category: material.category,
+      unit: material.unit,
+      currentStock: Number(material.current_stock),
+      minStockLevel: Number(material.min_stock_level),
+      maxStockLevel: Number(material.max_stock_level),
+      supplier: material.supplier,
+      location: material.location,
+      barcode: material.barcode,
+      imagePath: material.image_path,
+      createdAt: material.created_at,
+      updatedAt: material.updated_at
+    }));
+
+    // Pagination
+    const startIndex = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const endIndex = startIndex + parseInt(limit as string);
+    const paginatedMaterials = formattedMaterials.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: {
+        data: paginatedMaterials,
+        total: formattedMaterials.length,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(formattedMaterials.length / parseInt(limit as string))
+      }
+    });
   } catch (error) {
-    console.error('Materials fetch error:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error('Materials fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(500).json({
+      success: false,
+      error: 'Malzemeler yüklenirken hata oluştu'
+    });
   }
 });
 
-app.get('/api/materials/:id', (req: Request, res: Response) => {
-  const material = materials.find(m => m.id === req.params.id);
-  if (!material) {
-    return res.status(404).json({ success: false, error: 'Material not found' });
+app.get('/api/materials/:id', async (req: Request, res: Response) => {
+  try {
+    // Import Supabase connection
+    const { dbAdmin } = await import('./lib/supabase.ts');
+    
+    const material = await dbAdmin.materials.getById(req.params.id);
+    
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: material.id,
+      code: material.code,
+      name: material.name,
+      description: material.description,
+      category: material.category,
+      unit: material.unit,
+      currentStock: Number(material.current_stock),
+      minStockLevel: Number(material.min_stock_level),
+      maxStockLevel: Number(material.max_stock_level),
+      supplier: material.supplier,
+      location: material.location,
+      barcode: material.barcode,
+      imagePath: material.image_path,
+      createdAt: material.created_at,
+      updatedAt: material.updated_at
+    };
+
+    res.json({
+      success: true,
+      data: formattedMaterial
+    });
+  } catch (error) {
+    console.error('Material fetch error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(404).json({
+      success: false,
+      error: 'Malzeme bulunamadı'
+    });
   }
-  res.json({ success: true, data: material });
 });
 
-app.post('/api/materials', (req: Request, res: Response) => {
-  const newMaterial = {
-    id: String(materials.length + 1),
-    ...req.body,
-    lastUpdated: new Date().toISOString()
-  };
-  materials.push(newMaterial);
-  res.json({ success: true, data: newMaterial });
+app.post('/api/materials', async (req: Request, res: Response) => {
+  try {
+    const { code, name, description, category, unit, quantity, minStockLevel, maxStockLevel, supplier, location, barcode } = req.body;
+
+    // Validate required fields
+    if (!code || !name || !category || !unit) {
+      return res.status(400).json({
+        success: false,
+        error: 'Gerekli alanlar eksik'
+      });
+    }
+
+    // Import Supabase connection
+    const { dbAdmin } = await import('./lib/supabase.ts');
+
+    // Check if material code already exists
+    try {
+      await dbAdmin.materials.getByCode(code);
+      return res.status(400).json({
+        success: false,
+        error: 'Bu malzeme kodu zaten kullanılıyor'
+      });
+    } catch {
+      // Material doesn't exist, which is what we want
+    }
+
+    const materialData = {
+      code,
+      name,
+      description,
+      category,
+      unit,
+      current_stock: quantity ? parseFloat(quantity) : 0,
+      min_stock_level: minStockLevel ? parseFloat(minStockLevel) : 0,
+      max_stock_level: maxStockLevel ? parseFloat(maxStockLevel) : 0,
+      supplier,
+      location,
+      barcode
+    };
+
+    const newMaterial = await dbAdmin.materials.create(materialData);
+
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: newMaterial.id,
+      code: newMaterial.code,
+      name: newMaterial.name,
+      description: newMaterial.description,
+      category: newMaterial.category,
+      unit: newMaterial.unit,
+      currentStock: Number(newMaterial.current_stock),
+      minStockLevel: Number(newMaterial.min_stock_level),
+      maxStockLevel: Number(newMaterial.max_stock_level),
+      supplier: newMaterial.supplier,
+      location: newMaterial.location,
+      barcode: newMaterial.barcode,
+      imagePath: newMaterial.image_path,
+      createdAt: newMaterial.created_at,
+      updatedAt: newMaterial.updated_at
+    };
+
+    res.status(201).json({
+      success: true,
+      data: formattedMaterial
+    });
+  } catch (error) {
+    console.error('Material creation error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(500).json({
+      success: false,
+      error: 'Malzeme oluşturulurken hata oluştu'
+    });
+  }
 });
 
-app.put('/api/materials/:id', (req: Request, res: Response) => {
-  const index = materials.findIndex(m => m.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ success: false, error: 'Material not found' });
+app.put('/api/materials/:id', async (req: Request, res: Response) => {
+  try {
+    const { code, name, description, category, unit, quantity, minStockLevel, maxStockLevel, supplier, location, barcode } = req.body;
+
+    // Import Supabase connection
+    const { dbAdmin } = await import('./lib/supabase.ts');
+
+    // Check if new code conflicts with existing materials (excluding current one)
+    if (code) {
+      try {
+        const existingMaterial = await dbAdmin.materials.getByCode(code);
+        if (existingMaterial.id !== req.params.id) {
+          return res.status(400).json({
+            success: false,
+            error: 'Bu malzeme kodu zaten kullanılıyor'
+          });
+        }
+      } catch {
+        // Material doesn't exist, which is fine
+      }
+    }
+
+    const updateData: any = {};
+    if (code) updateData.code = code;
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category) updateData.category = category;
+    if (unit) updateData.unit = unit;
+    if (quantity !== undefined) updateData.current_stock = parseFloat(quantity);
+    if (minStockLevel !== undefined) updateData.min_stock_level = parseFloat(minStockLevel);
+    if (maxStockLevel !== undefined) updateData.max_stock_level = parseFloat(maxStockLevel);
+    if (supplier !== undefined) updateData.supplier = supplier;
+    if (location !== undefined) updateData.location = location;
+    if (barcode !== undefined) updateData.barcode = barcode;
+
+    const updatedMaterial = await dbAdmin.materials.update(req.params.id, updateData);
+
+    // Convert to frontend format
+    const formattedMaterial = {
+      id: updatedMaterial.id,
+      code: updatedMaterial.code,
+      name: updatedMaterial.name,
+      description: updatedMaterial.description,
+      category: updatedMaterial.category,
+      unit: updatedMaterial.unit,
+      currentStock: Number(updatedMaterial.current_stock),
+      minStockLevel: Number(updatedMaterial.min_stock_level),
+      maxStockLevel: Number(updatedMaterial.max_stock_level),
+      supplier: updatedMaterial.supplier,
+      location: updatedMaterial.location,
+      barcode: updatedMaterial.barcode,
+      imagePath: updatedMaterial.image_path,
+      createdAt: updatedMaterial.created_at,
+      updatedAt: updatedMaterial.updated_at
+    };
+
+    res.json({
+      success: true,
+      data: formattedMaterial
+    });
+  } catch (error) {
+    console.error('Material update error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(500).json({
+      success: false,
+      error: 'Malzeme güncellenirken hata oluştu'
+    });
   }
-  materials[index] = { ...materials[index], ...req.body, lastUpdated: new Date().toISOString() };
-  res.json({ success: true, data: materials[index] });
 });
 
-app.delete('/api/materials/:id', (req: Request, res: Response) => {
-  const index = materials.findIndex(m => m.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ success: false, error: 'Material not found' });
+app.delete('/api/materials/:id', async (req: Request, res: Response) => {
+  try {
+    // Import Supabase connection
+    const { dbAdmin } = await import('./lib/supabase.ts');
+
+    await dbAdmin.materials.delete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Malzeme başarıyla silindi'
+    });
+  } catch (error) {
+    console.error('Material deletion error:', error instanceof Error ? error.message : JSON.stringify(error));
+    res.status(404).json({
+      success: false,
+      error: 'Malzeme bulunamadı'
+    });
   }
-  materials.splice(index, 1);
-  res.json({ success: true, message: 'Material deleted' });
 });
 
 // Movements routes
@@ -944,24 +1190,7 @@ app.get('/api/movements', (req: Request, res: Response) => {
   }
 });
 
-// Suppliers routes
-app.get('/api/suppliers', (req: Request, res: Response) => {
-  const suppliers = [
-    { id: '1', name: 'Afyon Mermer A.Ş.', contact: 'info@afyonmermer.com' },
-    { id: '2', name: 'Makine Parça Ltd.', contact: 'satis@makineparca.com' }
-  ];
-  res.json({ success: true, data: suppliers });
-});
-
-// Admin suppliers route (used by MaterialForm and MaterialEdit)
-app.get('/api/admin/suppliers', (req: Request, res: Response) => {
-  const suppliers = [
-    { id: '1', name: 'Afyon Mermer A.Ş.', contact: 'info@afyonmermer.com', email: 'info@afyonmermer.com', phone: '+90 272 123 4567', address: 'Afyon Merkez', status: 'active' },
-    { id: '2', name: 'Makine Parça Ltd.', contact: 'satis@makineparca.com', email: 'satis@makineparca.com', phone: '+90 212 987 6543', address: 'İstanbul Sanayi', status: 'active' },
-    { id: '3', name: 'Granit Dünyası', contact: 'info@granitdunyasi.com', email: 'info@granitdunyasi.com', phone: '+90 232 555 1234', address: 'İzmir Kemalpaşa', status: 'active' }
-  ];
-  res.json({ success: true, data: suppliers });
-});
+// Suppliers routes removed - now handled by dedicated routing structure
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
